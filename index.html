@@ -235,7 +235,11 @@
     <div class="toolbar toolbar-main">
       <div class="search-wrap">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#57626D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input id="searchInput" placeholder="Search name, group, or URL" />
+        <input id="searchInput" placeholder="Search channel name" />
+      </div>
+      <div class="search-wrap">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#57626D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input id="groupNameSearchInput" placeholder="Search group" />
       </div>
       <select id="groupFilter"><option value="all">All groups</option></select>
       <button class="btn-danger" id="keepOnlyBtn" style="display:none;">Keep only this, delete rest</button>
@@ -254,10 +258,6 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#062420" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Export .m3u
       </button>
-    </div>
-
-    <div class="toolbar toolbar-epg">
-      <input id="epgInput" class="mono" placeholder="EPG URL (optional)" style="flex:1 1 240px; font-size:12px;" />
     </div>
 
     <div id="exportOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
@@ -297,7 +297,6 @@
         </button>
       </div>
       <div class="group-search-row">
-        <input id="groupSearchInput" placeholder="Find groups, e.g. &quot;pk&quot;" />
         <button class="btn-outline" id="checkShownBtn">Check all shown</button>
         <button class="btn-ghost" id="uncheckShownBtn">Uncheck all shown</button>
       </div>
@@ -307,20 +306,7 @@
       </div>
     </div>
 
-    <div class="meta-row">
-      <div class="fname" id="fnameLabel"></div>
-      <button class="replace-btn" id="replaceBtn">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-        replace file
-      </button>
-      <input type="file" id="replaceInput" accept=".m3u,.m3u8,.txt" style="display:none" />
-    </div>
-
     <div id="bulkBarContainer"></div>
-
-    <div class="list-header">
-      <label><input type="checkbox" id="selectAllCheck" /> Select all matching (not just this page)</label>
-    </div>
 
     <div id="rowsContainer"></div>
     <datalist id="groupsDatalist"></datalist>
@@ -341,6 +327,7 @@
     epgUrl: '',
     channels: [],
     search: '',
+    groupNameSearch: '',
     groupFilter: 'all',
     page: 1,
     openRows: new Set(),
@@ -457,13 +444,10 @@
   const editorEl = document.getElementById('editor');
   const statsEl = document.getElementById('stats');
   const searchInput = document.getElementById('searchInput');
+  const groupNameSearchInput = document.getElementById('groupNameSearchInput');
   const groupFilterSel = document.getElementById('groupFilter');
-  const epgInput = document.getElementById('epgInput');
   const addBtn = document.getElementById('addBtn');
   const exportBtn = document.getElementById('exportBtn');
-  const fnameLabel = document.getElementById('fnameLabel');
-  const replaceBtn = document.getElementById('replaceBtn');
-  const replaceInput = document.getElementById('replaceInput');
   const rowsContainer = document.getElementById('rowsContainer');
   const urlInput = document.getElementById('urlInput');
   const urlLoadBtn = document.getElementById('urlLoadBtn');
@@ -475,7 +459,6 @@
   const newGroupInput = document.getElementById('newGroupInput');
   const addGroupBtn = document.getElementById('addGroupBtn');
   const bulkBarContainer = document.getElementById('bulkBarContainer');
-  const selectAllCheck = document.getElementById('selectAllCheck');
   const groupsDatalist = document.getElementById('groupsDatalist');
   const keepOnlyBtn = document.getElementById('keepOnlyBtn');
 
@@ -485,12 +468,12 @@
     state.fileName = fileName;
     state.loaded = true;
     state.search = '';
+    state.groupNameSearch = '';
     state.groupFilter = 'all';
     state.page = 1;
     state.selectedIds = new Set();
     state.customGroups = new Set();
     state.groupKeepChecks = new Set();
-    state.groupSearch = '';
     state.expandedGroups = new Set();
     render();
   }
@@ -514,8 +497,6 @@
     const f = e.dataTransfer.files[0];
     if (f) handleFile(f);
   });
-  replaceBtn.addEventListener('click', () => replaceInput.click());
-  replaceInput.addEventListener('change', (e) => { const f = e.target.files[0]; if (f) handleFile(f); e.target.value = ''; });
 
   createBlankBtn.addEventListener('click', () => {
     loadChannels([], '', 'untitled.m3u');
@@ -588,7 +569,9 @@
   urlLoadBtn.addEventListener('click', loadFromUrl);
   urlInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') loadFromUrl(); });
 
-  searchInput.addEventListener('input', (e) => { state.search = e.target.value; state.page = 1; renderRows(); });
+  const debouncedSearchRender = debounce(() => renderRows(), 180);
+  searchInput.addEventListener('input', (e) => { state.search = e.target.value; state.page = 1; debouncedSearchRender(); });
+  groupNameSearchInput.addEventListener('input', (e) => { state.groupNameSearch = e.target.value; state.page = 1; debouncedSearchRender(); if (state.groupsPanelOpen) renderGroupsPanel(); });
   groupFilterSel.addEventListener('change', (e) => {
     state.groupFilter = e.target.value;
     state.page = 1;
@@ -610,7 +593,6 @@
     keepOnlyBtn.style.display = 'none';
     render();
   });
-  epgInput.addEventListener('input', (e) => { state.epgUrl = e.target.value; });
   addBtn.addEventListener('click', () => {
     state.channels.push({ id: makeId(), duration: '-1', attrs: { 'group-title': '' }, name: 'New channel', extras: [], url: '' });
     render();
@@ -738,13 +720,6 @@
   });
   newGroupInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') addGroupBtn.click(); });
 
-  selectAllCheck.addEventListener('change', (e) => {
-    const list = filteredList();
-    if (e.target.checked) list.forEach(({ ch }) => state.selectedIds.add(ch.id));
-    else list.forEach(({ ch }) => state.selectedIds.delete(ch.id));
-    renderRows();
-  });
-
   function render() {
     entryWrap.style.display = state.loaded ? 'none' : 'block';
     editorEl.style.display = state.loaded ? 'block' : 'none';
@@ -762,37 +737,42 @@
 
     groupsDatalist.innerHTML = groups.map((g) => '<option value="' + esc(g) + '"></option>').join('');
 
-    epgInput.value = state.epgUrl;
-    fnameLabel.textContent = state.fileName;
-
     if (state.groupsPanelOpen) renderGroupsPanel();
-    const gsi = document.getElementById('groupSearchInput');
-    if (gsi) gsi.value = state.groupSearch;
     renderRows();
   }
 
   function renderGroupsPanel() {
     const allG = allGroups();
-    const q = state.groupSearch.trim().toLowerCase();
+    const q = state.groupNameSearch.trim().toLowerCase();
     const groups = q ? allG.filter((g) => g.toLowerCase().includes(q)) : allG;
     const counts = {};
     state.channels.forEach((ch) => { const g = groupOf(ch); counts[g] = (counts[g] || 0) + 1; });
 
     if (groups.length === 0) {
-      groupsListEl.innerHTML = '<div class="empty-state" style="padding:20px;">No groups match "' + esc(state.groupSearch) + '".</div>';
+      groupsListEl.innerHTML = '<div class="empty-state" style="padding:20px;">No groups match "' + esc(state.groupNameSearch) + '".</div>';
       updateKeepCheckedBtnLabel();
       return;
     }
 
-    groupsListEl.innerHTML = groups.map((g) => (
-      '<div class="group-item" data-group="' + esc(g) + '">' +
-        '<input type="checkbox" class="grp-keep-check" ' + (state.groupKeepChecks && state.groupKeepChecks.has(g) ? 'checked' : '') + ' title="Mark to keep" />' +
-        '<input class="grp-rename" value="' + esc(g) + '" />' +
-        '<button class="group-count grp-view" title="View only this group\'s channels" style="border:none; background:none; cursor:pointer; padding:0; text-decoration:underline dotted;">' + (counts[g] || 0) + ' ch</button>' +
-        '<button class="iconbtn grp-view" title="View only this group\'s channels"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>' +
-        '<button class="iconbtn danger grp-delete" title="Delete group"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>' +
-      '</div>'
-    )).join('');
+    if (q) {
+      groupsListEl.innerHTML = groups.map((g) => (
+        '<div class="group-item" data-group="' + esc(g) + '">' +
+          '<input type="checkbox" class="grp-keep-check" ' + (state.groupKeepChecks && state.groupKeepChecks.has(g) ? 'checked' : '') + ' title="Mark to keep" />' +
+          '<span class="group-name-plain" style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + esc(g) + '</span>' +
+          '<span class="group-count" style="opacity:0.7;">' + (counts[g] || 0) + ' ch</span>' +
+        '</div>'
+      )).join('');
+    } else {
+      groupsListEl.innerHTML = groups.map((g) => (
+        '<div class="group-item" data-group="' + esc(g) + '">' +
+          '<input type="checkbox" class="grp-keep-check" ' + (state.groupKeepChecks && state.groupKeepChecks.has(g) ? 'checked' : '') + ' title="Mark to keep" />' +
+          '<input class="grp-rename" value="' + esc(g) + '" />' +
+          '<button class="group-count grp-view" title="View only this group\'s channels" style="border:none; background:none; cursor:pointer; padding:0; text-decoration:underline dotted;">' + (counts[g] || 0) + ' ch</button>' +
+          '<button class="iconbtn grp-view" title="View only this group\'s channels"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>' +
+          '<button class="iconbtn danger grp-delete" title="Delete group"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>' +
+        '</div>'
+      )).join('');
+    }
 
     if (!state.groupKeepChecks) state.groupKeepChecks = new Set();
 
@@ -835,13 +815,8 @@
     rowsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  document.getElementById('groupSearchInput').addEventListener('input', (e) => {
-    state.groupSearch = e.target.value;
-    renderGroupsPanel();
-  });
-
   document.getElementById('checkShownBtn').addEventListener('click', () => {
-    const q = state.groupSearch.trim().toLowerCase();
+    const q = state.groupNameSearch.trim().toLowerCase();
     const shown = q ? allGroups().filter((g) => g.toLowerCase().includes(q)) : allGroups();
     if (!state.groupKeepChecks) state.groupKeepChecks = new Set();
     shown.forEach((g) => state.groupKeepChecks.add(g));
@@ -850,7 +825,7 @@
   });
 
   document.getElementById('uncheckShownBtn').addEventListener('click', () => {
-    const q = state.groupSearch.trim().toLowerCase();
+    const q = state.groupNameSearch.trim().toLowerCase();
     const shown = q ? allGroups().filter((g) => g.toLowerCase().includes(q)) : allGroups();
     if (!state.groupKeepChecks) state.groupKeepChecks = new Set();
     shown.forEach((g) => state.groupKeepChecks.delete(g));
@@ -897,12 +872,8 @@
 
   function renderRows() {
     const list = filteredList();
-    fnameLabel.textContent = state.fileName + ' · ' + list.length + ' matching';
 
     renderBulkBar();
-
-    const allChecked = list.length > 0 && list.every(({ ch }) => state.selectedIds.has(ch.id));
-    selectAllCheck.checked = allChecked;
 
     if (list.length === 0) {
       rowsContainer.innerHTML = '<div class="empty-state">' +
@@ -914,7 +885,9 @@
       return;
     }
 
-    const showAccordion = state.groupFilter === 'all' && !state.search.trim();
+    const nameSearching = !!state.search.trim();
+    const groupSearching = !!state.groupNameSearch.trim();
+    const showAccordion = state.groupFilter === 'all' && !(nameSearching && !groupSearching);
     if (showAccordion) {
       renderGroupsAccordion(list);
       renderPager(0, 0);
@@ -935,6 +908,14 @@
 
   const GROUP_PAGE_SIZE = 100;
 
+  function debounce(fn, ms) {
+    let t;
+    return function (...args) {
+      clearTimeout(t);
+      t = setTimeout(() => fn.apply(this, args), ms);
+    };
+  }
+
   function renderGroupsAccordion(list) {
     const byGroup = {};
     const order = [];
@@ -946,18 +927,27 @@
     order.sort((a, b) => a.localeCompare(b));
 
     const padLen = Math.max(2, String(state.channels.length).length);
+    const searching = !!state.search.trim();
+    const SEARCH_RENDER_CAP = 400;
+    let rendered = 0;
+    let capped = false;
 
-    rowsContainer.innerHTML = order.map((g) => {
+    const html = order.map((g) => {
       const items = byGroup[g];
-      const open = state.expandedGroups.has(g);
+      const manuallyOpen = state.expandedGroups.has(g);
+      const autoOpen = searching && !manuallyOpen && rendered < SEARCH_RENDER_CAP;
+      const open = manuallyOpen || autoOpen;
       let body = '';
       if (open) {
         const shown = items.slice(0, GROUP_PAGE_SIZE);
+        rendered += shown.length;
         body = shown.map(({ ch, idx }) => rowHtml(ch, idx, padLen)).join('');
         if (items.length > GROUP_PAGE_SIZE) {
           body += '<div class="group-acc-more">Showing first ' + GROUP_PAGE_SIZE + ' of ' + items.length +
             ' — <button type="button" class="grp-open-full" data-group="' + esc(g) + '">view full group list</button></div>';
         }
+      } else if (searching) {
+        capped = true;
       }
       return (
         '<div class="group-acc' + (open ? ' open' : '') + '" data-group="' + esc(g) + '">' +
@@ -970,6 +960,10 @@
         '</div>'
       );
     }).join('');
+
+    rowsContainer.innerHTML = (capped
+      ? '<div class="group-acc-more" style="padding:8px 12px;">Showing first ' + rendered + ' matching channels — refine your search or click a group below to see the rest.</div>'
+      : '') + html;
 
     rowsContainer.querySelectorAll('.group-acc-header').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -1063,11 +1057,24 @@
     return state.channels.map((ch, idx) => ({ ch, idx })).filter(({ ch }) => {
       const g = groupOf(ch);
       if (state.groupFilter !== 'all' && g !== state.groupFilter) return false;
-      if (!state.search.trim()) return true;
-      const s = state.search.toLowerCase();
-      return (ch.name || '').toLowerCase().includes(s) ||
-             (ch.url || '').toLowerCase().includes(s) ||
-             g.toLowerCase().includes(s);
+
+      if (state.search.trim()) {
+        const nameWords = state.search.toLowerCase().trim().split(/\s+/);
+        const nameParts = (ch.name || '').toLowerCase().split(/[\s\-_|,:.()\[\]]+/).filter(Boolean);
+        if (!nameWords.every((w) => nameParts.some((p) => p.startsWith(w)))) return false;
+      }
+
+      if (state.groupNameSearch.trim()) {
+        const groupWords = state.groupNameSearch.toLowerCase().trim().split(/\s+/);
+        const group = g.toLowerCase();
+        const groupParts = group.split(/[\s\-_|,/]+/);
+        const matches = groupWords.every((w) =>
+          group.includes(w) || groupParts.some((p) => p.startsWith(w))
+        );
+        if (!matches) return false;
+      }
+
+      return true;
     });
   }
 
@@ -1126,7 +1133,6 @@
         e.target.checked ? state.selectedIds.add(id) : state.selectedIds.delete(id);
         rowEl.classList.toggle('selected', e.target.checked);
         renderBulkBar();
-        selectAllCheck.checked = filteredList().length > 0 && filteredList().every(({ ch }) => state.selectedIds.has(ch.id));
       });
 
       rowEl.querySelector('.f-name').addEventListener('input', (e) => { ch.name = e.target.value; });
