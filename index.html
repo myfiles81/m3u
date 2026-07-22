@@ -4,7 +4,13 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>M3U Editor</title>
-<link rel="icon" href="data:,">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#14161A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="M3U Editor">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
@@ -488,19 +494,41 @@
     });
   });
 
+  const CORS_PROXY = 'https://corsproxy.io/?url=';
+
+  async function fetchWithTimeout(url) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    try {
+      const res = await fetch(url, { mode: 'cors', cache: 'no-store', signal: controller.signal });
+      return res;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
   async function loadFromUrl() {
     const url = urlInput.value.trim();
     if (!url) return;
     urlStatus.className = 'url-status loading';
     urlStatus.textContent = 'Fetching playlist…';
     urlLoadBtn.disabled = true;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    let text, usedProxy = false;
     try {
-      const res = await fetch(url, { mode: 'cors', cache: 'no-store', signal: controller.signal });
-      clearTimeout(timeoutId);
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const text = await res.text();
+      try {
+        const res = await fetchWithTimeout(url);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        text = await res.text();
+      } catch (directErr) {
+        if (directErr && directErr.name === 'AbortError') throw directErr;
+        // Direct fetch failed (most likely CORS) — retry through a proxy that
+        // fetches server-side and adds the missing CORS headers.
+        urlStatus.textContent = 'Direct load blocked — retrying via proxy…';
+        usedProxy = true;
+        const res = await fetchWithTimeout(CORS_PROXY + encodeURIComponent(url));
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        text = await res.text();
+      }
       urlStatus.textContent = 'Parsing playlist…';
       // Yield to the browser so the "Parsing…" message actually paints before the
       // (potentially expensive) parse/render work runs.
@@ -510,14 +538,13 @@
       let name = 'playlist.m3u';
       try { name = decodeURIComponent(url.split('/').pop().split('?')[0]) || name; } catch (e) {}
       urlStatus.className = 'url-status ok';
-      urlStatus.textContent = 'Loaded ' + channels.length + ' channels.' + (channels.length > PAGE_SIZE ? ' Showing ' + PAGE_SIZE + ' at a time — use search or the group filter to narrow it down.' : '');
+      urlStatus.textContent = 'Loaded ' + channels.length + ' channels' + (usedProxy ? ' (via proxy)' : '') + '.' + (channels.length > PAGE_SIZE ? ' Showing ' + PAGE_SIZE + ' at a time — use search or the group filter to narrow it down.' : '');
       loadChannels(channels, headerLine, name);
     } catch (err) {
-      clearTimeout(timeoutId);
       urlStatus.className = 'url-status error';
       urlStatus.textContent = err && err.name === 'AbortError'
         ? 'That took too long and timed out (over 20s). The server may be slow, blocking automated requests, or the file may be very large. Try downloading it and using Upload instead.'
-        : "Couldn't load that URL directly — the server may block cross-origin requests (CORS), require a login, or the link may be wrong. Try downloading the file and using Upload instead.";
+        : "Couldn't load that URL, even via proxy — the server may require a login, block automated requests entirely, or the link may be wrong. Try downloading the file and using Upload instead.";
     } finally {
       urlLoadBtn.disabled = false;
     }
@@ -1045,5 +1072,12 @@
   }
 })();
 </script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(() => {});
+      });
+    }
+  </script>
 </body>
 </html>
