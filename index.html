@@ -1,0 +1,1049 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>M3U Editor</title>
+<link rel="icon" href="data:,">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #14161A;
+    --panel: #1B1E23;
+    --panel-alt: #20242A;
+    --border: #2A2E35;
+    --border-light: #383D46;
+    --text: #ECE9E2;
+    --text-muted: #8B909A;
+    --text-dim: #5C6169;
+    --amber: #F2A93B;
+    --amber-dim: #4A3B22;
+    --green: #4CD787;
+    --red: #E5484D;
+    --red-dim: #4A2224;
+    --mono: #A9C9BD;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 28px 20px 80px; }
+
+  header.top { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; margin-bottom: 26px; }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: pulse-dot 2s ease-in-out infinite; }
+  @keyframes pulse-dot { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+  @media (prefers-reduced-motion: reduce) { .dot { animation: none; } }
+  h1 { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 20px; letter-spacing: .02em; margin: 0; text-transform: uppercase; }
+  .subtitle { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--text-dim); }
+
+  .stats { display: flex; gap: 8px; }
+  .statbox { border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; text-align: center; background: var(--panel); }
+  .statbox .val { font-family: 'IBM Plex Mono', monospace; font-size: 15px; color: var(--amber); line-height: 1.1; }
+  .statbox .lbl { font-size: 9px; letter-spacing: .08em; color: var(--text-dim); text-transform: uppercase; }
+
+  /* entry tabs */
+  .entry-tabs { display: flex; gap: 2px; margin-bottom: 14px; border: 1px solid var(--border); border-radius: 8px; padding: 3px; background: var(--panel); width: fit-content; }
+  .entry-tab { background: transparent; border: none; color: var(--text-muted); font-size: 12.5px; padding: 7px 14px; border-radius: 6px; font-family: 'Inter', sans-serif; cursor: pointer; }
+  .entry-tab.active { background: var(--amber); color: #1A1305; font-weight: 600; }
+
+  .dropzone { border: 2px dashed var(--border); border-radius: 12px; padding: 56px 20px; text-align: center; cursor: pointer; background: var(--panel); transition: border-color .15s, background .15s; }
+  .dropzone.active { border-color: var(--amber); background: rgba(242,169,59,0.08); }
+  .dropzone .title { font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 16px; margin: 14px 0 6px; }
+  .dropzone .hint { font-size: 13px; color: var(--text-muted); }
+
+  .panel-box { border: 1px solid var(--border); border-radius: 12px; padding: 40px 24px; background: var(--panel); text-align: center; }
+  .panel-box .title { font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 16px; margin: 4px 0 14px; }
+  .url-row { display: flex; gap: 8px; max-width: 460px; margin: 0 auto; }
+  .url-row input { flex: 1; }
+  .url-status { margin-top: 12px; font-size: 12.5px; min-height: 18px; }
+  .url-status.error { color: var(--red); }
+  .url-status.loading { color: var(--text-muted); }
+  .url-status.ok { color: var(--green); }
+
+  button { font-family: 'Inter', sans-serif; cursor: pointer; }
+  .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text-muted); border-radius: 6px; padding: 7px 14px; font-size: 12.5px; }
+  .btn-outline { display: flex; align-items: center; gap: 5px; background: transparent; border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 7px 12px; font-size: 12.5px; }
+  .btn-outline.on { border-color: var(--amber); color: var(--amber); }
+  .btn-primary { display: flex; align-items: center; gap: 5px; background: var(--amber); border: none; color: #1A1305; border-radius: 6px; padding: 7px 14px; font-size: 12.5px; font-weight: 600; }
+  .btn-primary:disabled { opacity: .5; cursor: default; }
+  .btn-danger { display: flex; align-items: center; gap: 5px; background: transparent; border: 1px solid var(--red); color: var(--red); border-radius: 6px; padding: 6px 12px; font-size: 12.5px; }
+  .btn-outline:hover, .btn-ghost:hover, .iconbtn:hover:not(:disabled) { border-color: var(--border-light); color: var(--text); }
+  .btn-primary:hover:not(:disabled) { filter: brightness(1.08); }
+  .btn-danger:hover { background: var(--red-dim); }
+
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; position: sticky; top: 0; background: var(--bg); padding-bottom: 10px; z-index: 5; }
+  .search-wrap { position: relative; flex: 1 1 180px; min-width: 160px; }
+  .search-wrap svg { position: absolute; left: 9px; top: 9px; }
+  .search-wrap input { padding-left: 28px; }
+
+  input, select, textarea { background: var(--panel-alt); border: 1px solid var(--border); border-radius: 6px; color: var(--text); padding: 6px 9px; font-size: 13px; font-family: 'Inter', sans-serif; width: 100%; outline: none; }
+  input.mono, textarea.mono { font-family: 'IBM Plex Mono', monospace; }
+  input:focus, select:focus, textarea:focus { border-color: var(--amber); box-shadow: 0 0 0 2px var(--amber-dim); }
+  select { width: auto; }
+
+  .meta-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .meta-row .fname { font-size: 12px; color: var(--text-dim); font-family: 'IBM Plex Mono', monospace; }
+  .replace-btn { background: none; border: none; color: var(--text-dim); font-size: 12px; display: flex; align-items: center; gap: 4px; }
+
+  /* groups panel */
+  .groups-panel { display: none; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); padding: 14px; margin-bottom: 14px; }
+  .groups-panel.open { display: block; }
+  .groups-panel h3 { font-family: 'Space Grotesk', sans-serif; font-size: 13px; margin: 0 0 10px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); }
+  .group-search-row { display: flex; gap: 8px; margin-bottom: 10px; }
+  .group-search-row input { flex: 1; }
+  .group-search-row button { flex-shrink: 0; white-space: nowrap; }
+  .group-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+  .group-item:last-of-type { border-bottom: none; }
+  .grp-keep-check { width: 15px; height: 15px; flex-shrink: 0; accent-color: var(--amber); }
+  .group-item input.grp-rename { flex: 1; font-size: 13px; }
+  .group-count { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--text-dim); width: 60px; text-align: right; flex-shrink: 0; }
+  .group-add-row { display: flex; gap: 8px; margin-top: 12px; }
+  .group-add-row input { flex: 1; }
+
+  /* bulk bar */
+  .bulk-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; background: var(--amber-dim); border: 1px solid var(--amber); border-radius: 8px; padding: 8px 12px; margin-bottom: 10px; font-size: 12.5px; }
+  .bulk-bar .count { font-weight: 600; color: var(--amber); flex-shrink: 0; }
+  .bulk-bar select { font-size: 12px; }
+
+  .list-header { display: flex; align-items: center; gap: 10px; padding: 0 12px 6px 12px; }
+  .list-header label { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); cursor: pointer; }
+
+  .empty-state { border: 1px dashed var(--border); border-radius: 10px; padding: 40px 20px; text-align: center; color: var(--text-muted); font-size: 13px; }
+  .empty-state strong { color: var(--text); }
+
+  .row { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; overflow: hidden; }
+  .row.selected { border-color: var(--amber); }
+  .row-inner { display: flex; align-items: stretch; }
+  .row-bar { width: 3px; background: var(--amber); flex-shrink: 0; }
+  .row-body { flex: 1; padding: 10px 12px; }
+  .row-main { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .row-check { width: 15px; height: 15px; flex-shrink: 0; accent-color: var(--amber); }
+  .row-idx { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--text-dim); min-width: 20px; flex-shrink: 0; }
+  .row-pos { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--text-dim); width: 40px; flex-shrink: 0; background: transparent; border: 1px solid transparent; border-radius: 4px; padding: 2px 4px; text-align: center; }
+  .row-pos:hover, .row-pos:focus { border-color: var(--border, #3A3220); color: var(--text, #EDE6D6); outline: none; }
+
+  .pager { display: flex; align-items: center; justify-content: center; gap: 14px; margin: 14px 0 4px; }
+  .pager-label { font-size: 12px; color: var(--text-dim); font-family: 'IBM Plex Mono', monospace; }
+  .pager button:disabled { opacity: .35; cursor: default; }
+  .row-logo { position: relative; width: 30px; height: 30px; border-radius: 6px; flex-shrink: 0; background: var(--panel-alt); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; }
+  .row-logo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 6px; }
+  .field-name { flex: 2 1 160px; min-width: 120px; }
+  .field-name input { font-size: 13.5px; font-weight: 500; }
+  .field-group { flex: 1 1 110px; min-width: 90px; }
+  .row-actions { display: flex; gap: 4px; flex-shrink: 0; margin-left: auto; }
+  .iconbtn { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); }
+  .iconbtn.danger { color: var(--red); }
+  .iconbtn:disabled { color: var(--text-dim); opacity: .4; cursor: default; }
+  .row-url { margin-top: 8px; padding-left: 30px; }
+  .row-url input { font-size: 12px; color: var(--mono); }
+  .row-advanced { margin-top: 10px; padding-left: 30px; padding-top: 10px; border-top: 1px dashed var(--border); display: none; flex-wrap: wrap; gap: 8px; }
+  .row.open .row-advanced { display: flex; }
+  .adv-field { flex: 1 1 160px; min-width: 140px; }
+  .adv-field.small { flex: 0 1 80px; min-width: 70px; }
+  .adv-field.full { flex: 1 1 100%; }
+  .adv-field label { display: block; font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 3px; font-family: 'IBM Plex Mono', monospace; }
+  .chevron { transition: transform .15s; }
+  .row.open .chevron { transform: rotate(90deg); }
+
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <span class="dot"></span>
+      <div>
+        <h1>M3U Editor</h1>
+        <div class="subtitle">playlist editing console</div>
+      </div>
+    </div>
+    <div class="stats" id="stats" style="display:none;"></div>
+  </header>
+
+  <div id="entry-wrap">
+    <div class="entry-tabs">
+      <button class="entry-tab active" data-tab="upload">Upload file</button>
+      <button class="entry-tab" data-tab="url">From URL</button>
+      <button class="entry-tab" data-tab="blank">Create new</button>
+    </div>
+
+    <div class="entry-panel" data-panel="upload">
+      <div class="dropzone" id="dropzone">
+        <input type="file" id="fileInput" accept=".m3u,.m3u8,.txt" style="display:none" />
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#8B909A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <div class="title">Drop M3U file here</div>
+        <div class="hint">or click to browse · .m3u · .m3u8</div>
+      </div>
+    </div>
+
+    <div class="entry-panel" data-panel="url" style="display:none">
+      <div class="panel-box">
+        <div class="title">Load a playlist from its URL</div>
+        <div class="url-row">
+          <input id="urlInput" class="mono" placeholder="https://example.com/playlist.m3u8" />
+          <button class="btn-primary" id="urlLoadBtn">Load</button>
+        </div>
+        <div class="url-status" id="urlStatus"></div>
+      </div>
+    </div>
+
+    <div class="entry-panel" data-panel="blank" style="display:none">
+      <div class="panel-box">
+        <div class="title">Build a playlist from scratch</div>
+        <div class="hint" style="margin-bottom:16px;">Start empty, add channels one by one, then export a finished .m3u file.</div>
+        <button class="btn-primary" id="createBlankBtn" style="margin: 0 auto;">Create playlist</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="editor" style="display:none;">
+    <div class="toolbar">
+      <div class="search-wrap">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5C6169" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input id="searchInput" placeholder="Search name, group, or URL" />
+      </div>
+      <select id="groupFilter"><option value="all">All groups</option></select>
+      <button class="btn-danger" id="keepOnlyBtn" style="display:none;">Keep only this, delete rest</button>
+      <button class="btn-outline" id="groupsBtn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-8l-2-2H5a2 2 0 0 0-2 2z"/></svg>
+        Groups
+      </button>
+      <button class="btn-outline" id="addBtn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add channel
+      </button>
+      <button class="btn-primary" id="exportBtn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1A1305" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export .m3u
+      </button>
+    </div>
+
+    <div class="toolbar" style="margin-top:-6px;">
+      <input id="epgInput" class="mono" placeholder="EPG URL (optional)" style="flex:1 1 240px; font-size:12px;" />
+    </div>
+
+    <div id="exportOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
+      <div style="background:#1E1A0F; border:1px solid #3A3220; border-radius:10px; padding:20px; width:320px; max-width:90vw;">
+        <div style="font-weight:600; margin-bottom:12px; color:#EDE6D6;">Export playlist</div>
+        <input id="exportNameInput" class="mono" style="width:100%; box-sizing:border-box; font-size:13px; padding:8px; margin-bottom:14px;" />
+        <div style="display:flex; gap:8px; justify-content:flex-end;">
+          <button class="btn-outline" id="exportCancelBtn">Cancel</button>
+          <button class="btn-primary" id="exportConfirmBtn">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="playOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
+      <div style="background:#1E1A0F; border:1px solid #3A3220; border-radius:10px; padding:20px; width:320px; max-width:90vw;">
+        <div style="font-weight:600; margin-bottom:4px; color:#EDE6D6;">Open in player</div>
+        <div class="hint" id="playChannelName" style="margin-bottom:14px;"></div>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <button class="btn-outline" id="playIntentBtn" style="width:100%;">Open with installed app</button>
+          <button class="btn-outline" id="playCopyBtn" style="width:100%;">Copy stream URL</button>
+        </div>
+        <div style="display:flex; justify-content:flex-end; margin-top:14px;">
+          <button class="btn-ghost" id="playCancelBtn">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="groups-panel" id="groupsPanel">
+      <h3>Manage groups</h3>
+      <div class="group-search-row">
+        <input id="groupSearchInput" placeholder="Find groups, e.g. &quot;pk&quot;" />
+        <button class="btn-outline" id="checkShownBtn">Check all shown</button>
+        <button class="btn-ghost" id="uncheckShownBtn">Uncheck all shown</button>
+      </div>
+      <div id="groupsList"></div>
+      <div class="group-add-row">
+        <input id="newGroupInput" placeholder="New group name" />
+        <button class="btn-outline" id="addGroupBtn">Add group</button>
+      </div>
+      <div class="group-add-row">
+        <button class="btn-danger" id="keepCheckedBtn" style="margin-left:auto;">Keep checked groups, delete the rest</button>
+      </div>
+    </div>
+
+    <div class="meta-row">
+      <div class="fname" id="fnameLabel"></div>
+      <button class="replace-btn" id="replaceBtn">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        replace file
+      </button>
+      <input type="file" id="replaceInput" accept=".m3u,.m3u8,.txt" style="display:none" />
+    </div>
+
+    <div id="bulkBarContainer"></div>
+
+    <div class="list-header">
+      <label><input type="checkbox" id="selectAllCheck" /> Select all matching (not just this page)</label>
+    </div>
+
+    <div id="rowsContainer"></div>
+    <datalist id="groupsDatalist"></datalist>
+  </div>
+</div>
+
+<script>
+(function () {
+  const PRIMARY_ATTRS = ['tvg-id', 'tvg-logo', 'group-title'];
+  const PAGE_SIZE = 150;
+  const FETCH_TIMEOUT_MS = 20000;
+  let idCounter = 0;
+  const makeId = () => 'ch-' + (idCounter++) + '-' + Math.random().toString(36).slice(2, 8);
+
+  let state = {
+    loaded: false,
+    fileName: '',
+    epgUrl: '',
+    channels: [],
+    search: '',
+    groupFilter: 'all',
+    page: 1,
+    openRows: new Set(),
+    selectedIds: new Set(),
+    customGroups: new Set(),
+    groupKeepChecks: new Set(),
+    groupSearch: '',
+    groupsPanelOpen: false,
+  };
+
+  function parseM3U(text) {
+    const lines = text.split(/\r?\n/);
+    let headerLine = '#EXTM3U';
+    const channels = [];
+    let i = 0;
+    while (i < lines.length && lines[i].trim() === '') i++;
+    if (i < lines.length && lines[i].trim().startsWith('#EXTM3U')) {
+      headerLine = lines[i].trim();
+      i++;
+    }
+    let pending = null;
+    for (; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (line === '') continue;
+      if (line.startsWith('#EXTINF:')) {
+        const body = line.slice('#EXTINF:'.length);
+        let inQ = false, splitIdx = -1;
+        for (let c = 0; c < body.length; c++) {
+          if (body[c] === '"') inQ = !inQ;
+          else if (body[c] === ',' && !inQ) { splitIdx = c; break; }
+        }
+        const durAttrs = splitIdx === -1 ? body : body.slice(0, splitIdx);
+        const name = splitIdx === -1 ? '' : body.slice(splitIdx + 1);
+        const durMatch = durAttrs.match(/^\s*(-?\d+(?:\.\d+)?)/);
+        const duration = durMatch ? durMatch[1] : '-1';
+        const attrsStr = durMatch ? durAttrs.slice(durMatch[0].length) : durAttrs;
+        const attrs = {};
+        const attrRe = /([\w-]+)="([^"]*)"/g;
+        let m;
+        while ((m = attrRe.exec(attrsStr)) !== null) attrs[m[1]] = m[2];
+        pending = { duration, attrs, name: name.trim(), extras: [] };
+      } else if (line.startsWith('#')) {
+        if (pending) pending.extras.push(line);
+      } else {
+        if (pending) {
+          channels.push(Object.assign({ id: makeId() }, pending, { url: line }));
+          pending = null;
+        } else {
+          channels.push({ id: makeId(), duration: '-1', attrs: {}, name: line, extras: [], url: line });
+        }
+      }
+    }
+    return { headerLine, channels };
+  }
+
+  function serializeM3U(epgUrl, channels) {
+    const order = ['tvg-id', 'tvg-name', 'tvg-logo', 'group-title'];
+    const header = '#EXTM3U' + (epgUrl ? ' x-tvg-url="' + epgUrl + '"' : '');
+    const lines = [header];
+    channels.forEach((ch) => {
+      const keys = Object.keys(ch.attrs).filter((k) => ch.attrs[k] !== '' && ch.attrs[k] != null);
+      keys.sort((a, b) => {
+        const ai = order.indexOf(a), bi = order.indexOf(b);
+        if (ai === -1 && bi === -1) return a.localeCompare(b);
+        if (ai === -1) return 1;
+        if (bi === -1) return -1;
+        return ai - bi;
+      });
+      const attrsStr = keys.map((k) => k + '="' + ch.attrs[k] + '"').join(' ');
+      lines.push('#EXTINF:' + (ch.duration || '-1') + (attrsStr ? ' ' + attrsStr : '') + ',' + (ch.name || ''));
+      (ch.extras || []).forEach((e) => lines.push(e));
+      lines.push(ch.url || '');
+    });
+    return lines.join('\n') + '\n';
+  }
+
+  function otherAttrsString(attrs) {
+    return Object.entries(attrs)
+      .filter(([k]) => !PRIMARY_ATTRS.includes(k))
+      .map(([k, v]) => k + '="' + v + '"')
+      .join(' ');
+  }
+
+  function parseAttrString(str) {
+    const out = {};
+    const re = /([\w-]+)="([^"]*)"/g;
+    let m;
+    while ((m = re.exec(str)) !== null) out[m[1]] = m[2];
+    return out;
+  }
+
+  function extractEpgUrl(headerLine) {
+    const m = headerLine.match(/(?:x-tvg-url|url-tvg)="([^"]*)"/);
+    return m ? m[1] : '';
+  }
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function groupOf(ch) { return ch.attrs['group-title'] || 'Ungrouped'; }
+
+  function allGroups() {
+    const set = new Set(state.customGroups);
+    state.channels.forEach((ch) => set.add(groupOf(ch)));
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }
+
+  // ---- DOM refs ----
+  const dropzone = document.getElementById('dropzone');
+  const fileInput = document.getElementById('fileInput');
+  const entryWrap = document.getElementById('entry-wrap');
+  const editorEl = document.getElementById('editor');
+  const statsEl = document.getElementById('stats');
+  const searchInput = document.getElementById('searchInput');
+  const groupFilterSel = document.getElementById('groupFilter');
+  const epgInput = document.getElementById('epgInput');
+  const addBtn = document.getElementById('addBtn');
+  const exportBtn = document.getElementById('exportBtn');
+  const fnameLabel = document.getElementById('fnameLabel');
+  const replaceBtn = document.getElementById('replaceBtn');
+  const replaceInput = document.getElementById('replaceInput');
+  const rowsContainer = document.getElementById('rowsContainer');
+  const urlInput = document.getElementById('urlInput');
+  const urlLoadBtn = document.getElementById('urlLoadBtn');
+  const urlStatus = document.getElementById('urlStatus');
+  const createBlankBtn = document.getElementById('createBlankBtn');
+  const groupsBtn = document.getElementById('groupsBtn');
+  const groupsPanel = document.getElementById('groupsPanel');
+  const groupsListEl = document.getElementById('groupsList');
+  const newGroupInput = document.getElementById('newGroupInput');
+  const addGroupBtn = document.getElementById('addGroupBtn');
+  const bulkBarContainer = document.getElementById('bulkBarContainer');
+  const selectAllCheck = document.getElementById('selectAllCheck');
+  const groupsDatalist = document.getElementById('groupsDatalist');
+  const keepOnlyBtn = document.getElementById('keepOnlyBtn');
+
+  function loadChannels(channels, headerLine, fileName) {
+    state.channels = channels;
+    state.epgUrl = extractEpgUrl(headerLine || '');
+    state.fileName = fileName;
+    state.loaded = true;
+    state.search = '';
+    state.groupFilter = 'all';
+    state.page = 1;
+    state.selectedIds = new Set();
+    state.customGroups = new Set();
+    state.groupKeepChecks = new Set();
+    state.groupSearch = '';
+    render();
+  }
+
+  function handleFile(file) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const { headerLine, channels } = parseM3U(String(reader.result));
+      loadChannels(channels, headerLine, file.name);
+    };
+    reader.readAsText(file);
+  }
+
+  dropzone.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', (e) => { const f = e.target.files[0]; if (f) handleFile(f); e.target.value = ''; });
+  dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('active'); });
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('active'));
+  dropzone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropzone.classList.remove('active');
+    const f = e.dataTransfer.files[0];
+    if (f) handleFile(f);
+  });
+  replaceBtn.addEventListener('click', () => replaceInput.click());
+  replaceInput.addEventListener('change', (e) => { const f = e.target.files[0]; if (f) handleFile(f); e.target.value = ''; });
+
+  createBlankBtn.addEventListener('click', () => {
+    loadChannels([], '', 'untitled.m3u');
+  });
+
+  document.querySelectorAll('.entry-tab').forEach((tab) => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.entry-tab').forEach((t) => t.classList.remove('active'));
+      tab.classList.add('active');
+      document.querySelectorAll('.entry-panel').forEach((p) => { p.style.display = 'none'; });
+      document.querySelector('.entry-panel[data-panel="' + tab.dataset.tab + '"]').style.display = 'block';
+    });
+  });
+
+  async function loadFromUrl() {
+    const url = urlInput.value.trim();
+    if (!url) return;
+    urlStatus.className = 'url-status loading';
+    urlStatus.textContent = 'Fetching playlist…';
+    urlLoadBtn.disabled = true;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    try {
+      const res = await fetch(url, { mode: 'cors', cache: 'no-store', signal: controller.signal });
+      clearTimeout(timeoutId);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const text = await res.text();
+      urlStatus.textContent = 'Parsing playlist…';
+      // Yield to the browser so the "Parsing…" message actually paints before the
+      // (potentially expensive) parse/render work runs.
+      await new Promise((r) => setTimeout(r, 0));
+      const { headerLine, channels } = parseM3U(text);
+      if (channels.length === 0) throw new Error('No channels found in that file.');
+      let name = 'playlist.m3u';
+      try { name = decodeURIComponent(url.split('/').pop().split('?')[0]) || name; } catch (e) {}
+      urlStatus.className = 'url-status ok';
+      urlStatus.textContent = 'Loaded ' + channels.length + ' channels.' + (channels.length > PAGE_SIZE ? ' Showing ' + PAGE_SIZE + ' at a time — use search or the group filter to narrow it down.' : '');
+      loadChannels(channels, headerLine, name);
+    } catch (err) {
+      clearTimeout(timeoutId);
+      urlStatus.className = 'url-status error';
+      urlStatus.textContent = err && err.name === 'AbortError'
+        ? 'That took too long and timed out (over 20s). The server may be slow, blocking automated requests, or the file may be very large. Try downloading it and using Upload instead.'
+        : "Couldn't load that URL directly — the server may block cross-origin requests (CORS), require a login, or the link may be wrong. Try downloading the file and using Upload instead.";
+    } finally {
+      urlLoadBtn.disabled = false;
+    }
+  }
+  urlLoadBtn.addEventListener('click', loadFromUrl);
+  urlInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') loadFromUrl(); });
+
+  searchInput.addEventListener('input', (e) => { state.search = e.target.value; state.page = 1; renderRows(); });
+  groupFilterSel.addEventListener('change', (e) => {
+    state.groupFilter = e.target.value;
+    state.page = 1;
+    keepOnlyBtn.style.display = state.groupFilter === 'all' ? 'none' : 'flex';
+    renderRows();
+  });
+
+  keepOnlyBtn.addEventListener('click', () => {
+    const g = state.groupFilter;
+    if (g === 'all') return;
+    const keepCount = state.channels.filter((ch) => groupOf(ch) === g).length;
+    const removeCount = state.channels.length - keepCount;
+    if (removeCount === 0) return;
+    const ok = confirm('Keep the ' + keepCount + ' channel(s) in "' + g + '" and delete the other ' + removeCount + ' channel(s)? This can\'t be undone.');
+    if (!ok) return;
+    state.channels = state.channels.filter((ch) => groupOf(ch) === g);
+    state.selectedIds = new Set();
+    state.groupFilter = 'all';
+    keepOnlyBtn.style.display = 'none';
+    render();
+  });
+  epgInput.addEventListener('input', (e) => { state.epgUrl = e.target.value; });
+  addBtn.addEventListener('click', () => {
+    state.channels.push({ id: makeId(), duration: '-1', attrs: { 'group-title': '' }, name: 'New channel', extras: [], url: '' });
+    render();
+  });
+  const exportOverlay = document.getElementById('exportOverlay');
+  const exportNameInput = document.getElementById('exportNameInput');
+  const exportCancelBtn = document.getElementById('exportCancelBtn');
+  const exportConfirmBtn = document.getElementById('exportConfirmBtn');
+
+  function doDownload(fileName, text) {
+    const blob = new Blob([text], { type: 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function closeExportModal() {
+    exportOverlay.style.display = 'none';
+  }
+
+  exportBtn.addEventListener('click', () => {
+    const base = state.fileName.replace(/\.(m3u8?|txt)$/i, '') || 'playlist';
+    exportNameInput.value = base + '.m3u';
+    exportOverlay.style.display = 'flex';
+    exportNameInput.focus();
+    exportNameInput.select();
+  });
+
+  exportCancelBtn.addEventListener('click', closeExportModal);
+  exportOverlay.addEventListener('click', (e) => { if (e.target === exportOverlay) closeExportModal(); });
+
+  exportConfirmBtn.addEventListener('click', () => {
+    const chosen = exportNameInput.value.trim();
+    if (!chosen) return;
+    const finalName = /\.(m3u8?|txt)$/i.test(chosen) ? chosen : chosen + '.m3u';
+    const text = serializeM3U(state.epgUrl, state.channels);
+    doDownload(finalName, text);
+    closeExportModal();
+  });
+
+  exportNameInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') exportConfirmBtn.click();
+    if (e.key === 'Escape') closeExportModal();
+  });
+
+  const playOverlay = document.getElementById('playOverlay');
+  const playChannelName = document.getElementById('playChannelName');
+  const playIntentBtn = document.getElementById('playIntentBtn');
+  const playCopyBtn = document.getElementById('playCopyBtn');
+  const playCancelBtn = document.getElementById('playCancelBtn');
+  let currentPlayUrl = '';
+
+  function openExternalUrl(url) {
+    const a = document.createElement('a');
+    a.href = url;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+  function closePlayModal() {
+    playOverlay.style.display = 'none';
+  }
+
+  function openPlayModal(url, name) {
+    currentPlayUrl = url;
+    playChannelName.textContent = name || url;
+    playOverlay.style.display = 'flex';
+  }
+
+  // Browsers have no API to list which apps are installed on the device.
+  // The only way to offer just the apps actually present is to hand the
+  // stream to the OS's own chooser: on Android that's an intent:// link,
+  // which pops the native "Open with" list of installed apps and falls
+  // back to the browser automatically if nothing claims it.
+  playIntentBtn.addEventListener('click', () => {
+    const isAndroid = /android/i.test(navigator.userAgent);
+    if (isAndroid) {
+      const stripped = currentPlayUrl.replace(/^https?:\/\//i, '');
+      const scheme = /^https:\/\//i.test(currentPlayUrl) ? 'https' : 'http';
+      const fallback = encodeURIComponent(currentPlayUrl);
+      openExternalUrl('intent://' + stripped + '#Intent;scheme=' + scheme + ';action=android.intent.action.VIEW;type=video/*;S.browser_fallback_url=' + fallback + ';end');
+    } else {
+      // iOS/desktop: no OS-level chooser is exposed to web pages.
+      // Opening the URL directly lets whatever app is already
+      // registered for it take over; otherwise it opens in-browser.
+      openExternalUrl(currentPlayUrl);
+    }
+    closePlayModal();
+  });
+
+  playCopyBtn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(currentPlayUrl);
+      alert('Stream URL copied.');
+    } catch (err) {
+      window.prompt('Copy this URL:', currentPlayUrl);
+    }
+    closePlayModal();
+  });
+
+  playCancelBtn.addEventListener('click', closePlayModal);
+  playOverlay.addEventListener('click', (e) => { if (e.target === playOverlay) closePlayModal(); });
+
+  groupsBtn.addEventListener('click', () => {
+    state.groupsPanelOpen = !state.groupsPanelOpen;
+    groupsPanel.classList.toggle('open', state.groupsPanelOpen);
+    groupsBtn.classList.toggle('on', state.groupsPanelOpen);
+    if (state.groupsPanelOpen) renderGroupsPanel();
+  });
+
+  addGroupBtn.addEventListener('click', () => {
+    const name = newGroupInput.value.trim();
+    if (!name) return;
+    state.customGroups.add(name);
+    newGroupInput.value = '';
+    render();
+  });
+  newGroupInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') addGroupBtn.click(); });
+
+  selectAllCheck.addEventListener('change', (e) => {
+    const list = filteredList();
+    if (e.target.checked) list.forEach(({ ch }) => state.selectedIds.add(ch.id));
+    else list.forEach(({ ch }) => state.selectedIds.delete(ch.id));
+    renderRows();
+  });
+
+  function render() {
+    entryWrap.style.display = state.loaded ? 'none' : 'block';
+    editorEl.style.display = state.loaded ? 'block' : 'none';
+    statsEl.style.display = state.loaded ? 'flex' : 'none';
+    if (!state.loaded) return;
+
+    const groups = allGroups();
+    statsEl.innerHTML =
+      '<div class="statbox"><div class="val">' + state.channels.length + '</div><div class="lbl">channels</div></div>' +
+      '<div class="statbox"><div class="val">' + groups.length + '</div><div class="lbl">groups</div></div>';
+
+    groupFilterSel.innerHTML = '<option value="all">All groups</option>' +
+      groups.map((g) => '<option value="' + esc(g) + '"' + (state.groupFilter === g ? ' selected' : '') + '>' + esc(g) + '</option>').join('');
+    keepOnlyBtn.style.display = state.groupFilter === 'all' ? 'none' : 'flex';
+
+    groupsDatalist.innerHTML = groups.map((g) => '<option value="' + esc(g) + '"></option>').join('');
+
+    epgInput.value = state.epgUrl;
+    fnameLabel.textContent = state.fileName;
+
+    if (state.groupsPanelOpen) renderGroupsPanel();
+    const gsi = document.getElementById('groupSearchInput');
+    if (gsi) gsi.value = state.groupSearch;
+    renderRows();
+  }
+
+  function renderGroupsPanel() {
+    const allG = allGroups();
+    const q = state.groupSearch.trim().toLowerCase();
+    const groups = q ? allG.filter((g) => g.toLowerCase().includes(q)) : allG;
+    const counts = {};
+    state.channels.forEach((ch) => { const g = groupOf(ch); counts[g] = (counts[g] || 0) + 1; });
+
+    if (groups.length === 0) {
+      groupsListEl.innerHTML = '<div class="empty-state" style="padding:20px;">No groups match "' + esc(state.groupSearch) + '".</div>';
+      updateKeepCheckedBtnLabel();
+      return;
+    }
+
+    groupsListEl.innerHTML = groups.map((g) => (
+      '<div class="group-item" data-group="' + esc(g) + '">' +
+        '<input type="checkbox" class="grp-keep-check" ' + (state.groupKeepChecks && state.groupKeepChecks.has(g) ? 'checked' : '') + ' title="Mark to keep" />' +
+        '<input class="grp-rename" value="' + esc(g) + '" />' +
+        '<span class="group-count">' + (counts[g] || 0) + ' ch</span>' +
+        '<button class="iconbtn danger grp-delete" title="Delete group"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>' +
+      '</div>'
+    )).join('');
+
+    if (!state.groupKeepChecks) state.groupKeepChecks = new Set();
+
+    groupsListEl.querySelectorAll('.grp-keep-check').forEach((cb) => {
+      cb.addEventListener('change', (e) => {
+        const g = e.target.closest('.group-item').getAttribute('data-group');
+        e.target.checked ? state.groupKeepChecks.add(g) : state.groupKeepChecks.delete(g);
+        updateKeepCheckedBtnLabel();
+      });
+    });
+    updateKeepCheckedBtnLabel();
+    groupsListEl.querySelectorAll('.grp-rename').forEach((inp) => {
+      inp.addEventListener('blur', (e) => {
+        const oldName = e.target.closest('.group-item').getAttribute('data-group');
+        renameGroup(oldName, e.target.value);
+      });
+      inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') e.target.blur(); });
+    });
+    groupsListEl.querySelectorAll('.grp-delete').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        const g = e.target.closest('.group-item').getAttribute('data-group');
+        deleteGroup(g);
+      });
+    });
+  }
+
+  document.getElementById('groupSearchInput').addEventListener('input', (e) => {
+    state.groupSearch = e.target.value;
+    renderGroupsPanel();
+  });
+
+  document.getElementById('checkShownBtn').addEventListener('click', () => {
+    const q = state.groupSearch.trim().toLowerCase();
+    const shown = q ? allGroups().filter((g) => g.toLowerCase().includes(q)) : allGroups();
+    if (!state.groupKeepChecks) state.groupKeepChecks = new Set();
+    shown.forEach((g) => state.groupKeepChecks.add(g));
+    renderGroupsPanel();
+    updateKeepCheckedBtnLabel();
+  });
+
+  document.getElementById('uncheckShownBtn').addEventListener('click', () => {
+    const q = state.groupSearch.trim().toLowerCase();
+    const shown = q ? allGroups().filter((g) => g.toLowerCase().includes(q)) : allGroups();
+    if (!state.groupKeepChecks) state.groupKeepChecks = new Set();
+    shown.forEach((g) => state.groupKeepChecks.delete(g));
+    renderGroupsPanel();
+    updateKeepCheckedBtnLabel();
+  });
+
+  function updateKeepCheckedBtnLabel() {
+    const n = state.groupKeepChecks ? state.groupKeepChecks.size : 0;
+    const btn = document.getElementById('keepCheckedBtn');
+    if (btn) btn.textContent = n > 0 ? 'Keep ' + n + ' checked group' + (n === 1 ? '' : 's') + ', delete the rest' : 'Keep checked groups, delete the rest';
+  }
+
+  document.getElementById('keepCheckedBtn').addEventListener('click', () => {
+    const keep = state.groupKeepChecks;
+    if (!keep || keep.size === 0) { alert('Check at least one group to keep first.'); return; }
+    const keepCount = state.channels.filter((ch) => keep.has(groupOf(ch))).length;
+    const removeCount = state.channels.length - keepCount;
+    if (removeCount === 0) { alert('That already covers every channel — nothing to delete.'); return; }
+    const ok = confirm('Keep ' + keepCount + ' channel(s) across ' + keep.size + ' group(s) and delete the other ' + removeCount + ' channel(s)? This can\'t be undone.');
+    if (!ok) return;
+    state.channels = state.channels.filter((ch) => keep.has(groupOf(ch)));
+    state.selectedIds = new Set();
+    state.groupKeepChecks = new Set();
+    render();
+  });
+
+  function renameGroup(oldName, newName) {
+    newName = newName.trim();
+    if (!newName || newName === oldName) { renderGroupsPanel(); return; }
+    state.channels.forEach((ch) => {
+      if (groupOf(ch) === oldName) ch.attrs['group-title'] = newName === 'Ungrouped' ? '' : newName;
+    });
+    state.customGroups.delete(oldName);
+    if (newName !== 'Ungrouped') state.customGroups.add(newName);
+    render();
+  }
+
+  function deleteGroup(name) {
+    state.channels.forEach((ch) => { if (groupOf(ch) === name) ch.attrs['group-title'] = ''; });
+    state.customGroups.delete(name);
+    render();
+  }
+
+  function renderRows() {
+    const list = filteredList();
+    fnameLabel.textContent = state.fileName + ' · ' + list.length + ' matching';
+
+    renderBulkBar();
+
+    const allChecked = list.length > 0 && list.every(({ ch }) => state.selectedIds.has(ch.id));
+    selectAllCheck.checked = allChecked;
+
+    if (list.length === 0) {
+      rowsContainer.innerHTML = '<div class="empty-state">' +
+        (state.channels.length === 0
+          ? 'No channels yet — click <strong>Add channel</strong> to create one.'
+          : 'Nothing matches your search or filter.') +
+        '</div>';
+      renderPager(0, 0);
+      return;
+    }
+
+    const totalPages = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
+    if (state.page > totalPages) state.page = totalPages;
+    if (state.page < 1) state.page = 1;
+    const start = (state.page - 1) * PAGE_SIZE;
+    const pageItems = list.slice(start, start + PAGE_SIZE);
+    const padLen = Math.max(2, String(state.channels.length).length);
+
+    rowsContainer.innerHTML = pageItems.map(({ ch, idx }) => rowHtml(ch, idx, padLen)).join('');
+    attachRowListeners();
+    renderPager(list.length, totalPages);
+  }
+
+  function renderPager(totalMatching, totalPages) {
+    let pagerEl = document.getElementById('pagerBar');
+    if (totalPages <= 1) {
+      if (pagerEl) pagerEl.remove();
+      return;
+    }
+    const start = (state.page - 1) * PAGE_SIZE + 1;
+    const end = Math.min(state.page * PAGE_SIZE, totalMatching);
+    const html =
+      '<div class="pager" id="pagerBar">' +
+        '<button class="btn-ghost" id="pagerPrev" ' + (state.page <= 1 ? 'disabled' : '') + '>Prev</button>' +
+        '<span class="pager-label">Showing ' + start + '–' + end + ' of ' + totalMatching + ' · page ' + state.page + ' of ' + totalPages + '</span>' +
+        '<button class="btn-ghost" id="pagerNext" ' + (state.page >= totalPages ? 'disabled' : '') + '>Next</button>' +
+      '</div>';
+    if (pagerEl) pagerEl.outerHTML = html;
+    else rowsContainer.insertAdjacentHTML('afterend', html);
+    document.getElementById('pagerPrev').addEventListener('click', () => { state.page--; renderRows(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+    document.getElementById('pagerNext').addEventListener('click', () => { state.page++; renderRows(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+  }
+
+  function renderBulkBar() {
+    const n = state.selectedIds.size;
+    if (n === 0) { bulkBarContainer.innerHTML = ''; return; }
+    const groups = allGroups();
+    bulkBarContainer.innerHTML =
+      '<div class="bulk-bar">' +
+        '<span class="count">' + n + ' selected</span>' +
+        '<select id="bulkGroupSelect">' + groups.map((g) => '<option value="' + esc(g) + '">' + esc(g) + '</option>').join('') + '</select>' +
+        '<button class="btn-outline" id="bulkApplyBtn">Move to group</button>' +
+        '<input type="number" id="bulkPosInput" class="mono" min="1" max="' + state.channels.length + '" placeholder="Position" style="width:70px;" />' +
+        '<button class="btn-outline" id="bulkPosBtn">Move to position</button>' +
+        '<button class="btn-danger" id="bulkDeleteBtn">Delete selected</button>' +
+        '<button class="btn-ghost" id="bulkClearBtn">Clear</button>' +
+      '</div>';
+
+    document.getElementById('bulkApplyBtn').addEventListener('click', () => {
+      const g = document.getElementById('bulkGroupSelect').value;
+      state.channels.forEach((ch) => {
+        if (state.selectedIds.has(ch.id)) ch.attrs['group-title'] = g === 'Ungrouped' ? '' : g;
+      });
+      render();
+    });
+    document.getElementById('bulkPosBtn').addEventListener('click', () => {
+      const val = parseInt(document.getElementById('bulkPosInput').value, 10);
+      moveSelectedToPosition(val);
+    });
+    document.getElementById('bulkDeleteBtn').addEventListener('click', () => {
+      state.channels = state.channels.filter((ch) => !state.selectedIds.has(ch.id));
+      state.selectedIds = new Set();
+      render();
+    });
+    document.getElementById('bulkClearBtn').addEventListener('click', () => {
+      state.selectedIds = new Set();
+      renderRows();
+    });
+  }
+
+  function filteredList() {
+    return state.channels.map((ch, idx) => ({ ch, idx })).filter(({ ch }) => {
+      const g = groupOf(ch);
+      if (state.groupFilter !== 'all' && g !== state.groupFilter) return false;
+      if (!state.search.trim()) return true;
+      const s = state.search.toLowerCase();
+      return (ch.name || '').toLowerCase().includes(s) ||
+             (ch.url || '').toLowerCase().includes(s) ||
+             g.toLowerCase().includes(s);
+    });
+  }
+
+  function rowHtml(ch, idx, padLen) {
+    const group = ch.attrs['group-title'] || '';
+    const logo = ch.attrs['tvg-logo'] || '';
+    const open = state.openRows.has(ch.id);
+    const selected = state.selectedIds.has(ch.id);
+    return (
+      '<div class="row' + (open ? ' open' : '') + (selected ? ' selected' : '') + '" data-id="' + ch.id + '">' +
+        '<div class="row-inner">' +
+          '<div class="row-bar"></div>' +
+          '<div class="row-body">' +
+            '<div class="row-main">' +
+              '<input type="checkbox" class="row-check" ' + (selected ? 'checked' : '') + ' />' +
+              '<input type="number" class="row-pos mono" min="1" max="' + state.channels.length + '" value="' + (idx + 1) + '" title="Move to position" />' +
+              '<div class="row-logo">' +
+                '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5C6169" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg>' +
+                (logo ? '<img src="' + esc(logo) + '" alt="" onerror="this.style.display=\'none\'" />' : '') +
+              '</div>' +
+              '<div class="field-name"><input class="f-name" value="' + esc(ch.name) + '" placeholder="Channel name" /></div>' +
+              '<div class="field-group"><input class="f-group" list="groupsDatalist" value="' + esc(group) + '" placeholder="Group" /></div>' +
+              '<div class="row-actions">' +
+                '<button class="iconbtn a-play" title="Play in external player"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 4 20 12 6 20"/></svg></button>' +
+                '<button class="iconbtn a-up" title="Move up" ' + (idx === 0 ? 'disabled' : '') + '><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg></button>' +
+                '<button class="iconbtn a-down" title="Move down" ' + (idx === state.channels.length - 1 ? 'disabled' : '') + '><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>' +
+                '<button class="iconbtn a-toggle" title="More fields"><svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>' +
+                '<button class="iconbtn danger a-delete" title="Delete channel"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>' +
+              '</div>' +
+            '</div>' +
+            '<div class="row-url"><input class="f-url mono" value="' + esc(ch.url) + '" placeholder="Stream URL" /></div>' +
+            '<div class="row-advanced">' +
+              '<div class="adv-field"><label>Logo URL</label><input class="f-logo mono" value="' + esc(logo) + '" placeholder="https://…logo.png" /></div>' +
+              '<div class="adv-field"><label>TVG-ID</label><input class="f-tvgid mono" value="' + esc(ch.attrs['tvg-id'] || '') + '" placeholder="tvg-id" /></div>' +
+              '<div class="adv-field small"><label>Duration</label><input class="f-duration mono" value="' + esc(ch.duration) + '" placeholder="-1" /></div>' +
+              '<div class="adv-field full"><label>Other attributes</label><input class="f-other mono" value="' + esc(otherAttrsString(ch.attrs)) + '" placeholder=\'tvg-language="English"\' /></div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>'
+    );
+  }
+
+  function findChannel(id) { return state.channels.find((c) => c.id === id); }
+
+  function attachRowListeners() {
+    rowsContainer.querySelectorAll('.row').forEach((rowEl) => {
+      const id = rowEl.getAttribute('data-id');
+      const ch = findChannel(id);
+      if (!ch) return;
+
+      rowEl.querySelector('.row-check').addEventListener('change', (e) => {
+        e.target.checked ? state.selectedIds.add(id) : state.selectedIds.delete(id);
+        rowEl.classList.toggle('selected', e.target.checked);
+        renderBulkBar();
+        selectAllCheck.checked = filteredList().length > 0 && filteredList().every(({ ch }) => state.selectedIds.has(ch.id));
+      });
+
+      rowEl.querySelector('.f-name').addEventListener('input', (e) => { ch.name = e.target.value; });
+      rowEl.querySelector('.f-url').addEventListener('input', (e) => { ch.url = e.target.value; });
+      rowEl.querySelector('.f-group').addEventListener('change', (e) => {
+        ch.attrs['group-title'] = e.target.value;
+        render();
+      });
+
+      rowEl.querySelector('.f-logo').addEventListener('input', (e) => { ch.attrs['tvg-logo'] = e.target.value; });
+      rowEl.querySelector('.f-logo').addEventListener('change', () => { renderRows(); });
+      rowEl.querySelector('.f-tvgid').addEventListener('input', (e) => { ch.attrs['tvg-id'] = e.target.value; });
+      rowEl.querySelector('.f-duration').addEventListener('input', (e) => { ch.duration = e.target.value; });
+      rowEl.querySelector('.f-other').addEventListener('blur', (e) => {
+        const kept = {};
+        PRIMARY_ATTRS.forEach((k) => { if (ch.attrs[k] !== undefined) kept[k] = ch.attrs[k]; });
+        ch.attrs = Object.assign(kept, parseAttrString(e.target.value));
+      });
+
+      rowEl.querySelector('.a-play').addEventListener('click', () => {
+        const streamUrl = ch.url && ch.url.trim();
+        if (!streamUrl) { alert('This channel has no stream URL.'); return; }
+        openPlayModal(streamUrl, ch.name);
+      });
+      rowEl.querySelector('.a-up').addEventListener('click', () => { moveChannel(id, -1); });
+      rowEl.querySelector('.a-down').addEventListener('click', () => { moveChannel(id, 1); });
+      rowEl.querySelector('.row-pos').addEventListener('change', (e) => {
+        moveChannelToPosition(id, parseInt(e.target.value, 10));
+      });
+      rowEl.querySelector('.row-pos').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') e.target.blur();
+      });
+      rowEl.querySelector('.a-delete').addEventListener('click', () => {
+        state.channels = state.channels.filter((c) => c.id !== id);
+        state.selectedIds.delete(id);
+        render();
+      });
+      rowEl.querySelector('.a-toggle').addEventListener('click', () => {
+        state.openRows.has(id) ? state.openRows.delete(id) : state.openRows.add(id);
+        rowEl.classList.toggle('open');
+      });
+    });
+  }
+
+  function moveChannel(id, dir) {
+    const idx = state.channels.findIndex((c) => c.id === id);
+    const newIdx = idx + dir;
+    if (newIdx < 0 || newIdx >= state.channels.length) return;
+    const tmp = state.channels[idx];
+    state.channels[idx] = state.channels[newIdx];
+    state.channels[newIdx] = tmp;
+    renderRows();
+  }
+
+  function moveChannelToPosition(id, targetPos) {
+    const idx = state.channels.findIndex((c) => c.id === id);
+    if (idx === -1 || !targetPos || isNaN(targetPos)) { renderRows(); return; }
+    const clamped = Math.min(Math.max(targetPos, 1), state.channels.length);
+    const newIdx = clamped - 1;
+    if (newIdx === idx) { renderRows(); return; }
+    const [ch] = state.channels.splice(idx, 1);
+    state.channels.splice(newIdx, 0, ch);
+    renderRows();
+  }
+
+  function moveSelectedToPosition(targetPos) {
+    if (!targetPos || isNaN(targetPos) || state.selectedIds.size === 0) return;
+    const selected = state.channels.filter((c) => state.selectedIds.has(c.id));
+    const rest = state.channels.filter((c) => !state.selectedIds.has(c.id));
+    const clamped = Math.min(Math.max(targetPos, 1), state.channels.length) - 1;
+    const insertAt = Math.min(clamped, rest.length);
+    rest.splice(insertAt, 0, ...selected);
+    state.channels = rest;
+    render();
+  }
+})();
+</script>
+</body>
+</html>
