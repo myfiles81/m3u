@@ -87,6 +87,21 @@
   .btn-primary { display: flex; align-items: center; gap: 5px; background: var(--amber); border: none; color: var(--accent-ink); border-radius: 6px; padding: 9px 14px; font-size: 12.5px; font-weight: 600; }
   .btn-primary:disabled { opacity: .5; cursor: default; }
   .btn-danger { display: flex; align-items: center; gap: 5px; background: transparent; border: 1px solid var(--red); color: var(--red); border-radius: 6px; padding: 8px 12px; font-size: 12.5px; }
+  .export-menu { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 14px; }
+  .export-menu-item { display: flex; align-items: center; gap: 12px; width: 100%; background: var(--panel); border: none; border-bottom: 1px solid var(--border); padding: 12px 12px; text-align: left; font: inherit; }
+  .export-menu-item:last-child { border-bottom: none; }
+  .export-menu-item:hover:not(:disabled) { background: var(--panel-alt); }
+  .export-menu-item:disabled { opacity: .45; cursor: default; }
+  .emi-icon { flex-shrink: 0; width: 34px; height: 34px; border-radius: 8px; background: var(--panel-alt); display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 15px; }
+  .emi-text { flex: 1; min-width: 0; }
+  .emi-title { display: block; font-size: 13.5px; color: var(--text); font-weight: 500; }
+  .emi-sub { display: block; font-size: 11px; color: var(--text-dim); margin-top: 1px; }
+  .emi-chev { flex-shrink: 0; color: var(--text-dim); font-size: 15px; }
+  .export-status { font-size: 12px; margin-top: -4px; margin-bottom: 12px; min-height: 16px; word-break: break-all; }
+  .export-status.ok { color: var(--green); }
+  .export-status.error { color: var(--red); }
+  .export-status.loading { color: var(--text-muted); }
+  .export-status a { color: var(--mono); font-weight: 600; }
   .btn-outline:hover, .btn-ghost:hover, .iconbtn:hover:not(:disabled) { border-color: var(--border-light); color: var(--text); }
   .btn-primary:hover:not(:disabled) { filter: brightness(1.08); }
   .btn-danger:hover { background: var(--red-dim); }
@@ -330,13 +345,40 @@
 
 
     <div id="exportOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
-      <div style="background:#FFFFFF; border:1px solid #DFE3E8; border-radius:10px; padding:20px; width:320px; max-width:90vw;">
+      <div style="background:#FFFFFF; border:1px solid #DFE3E8; border-radius:10px; padding:20px; width:340px; max-width:90vw;">
         <div style="font-weight:600; margin-bottom:12px; color:#1B222B;">Export playlist</div>
         <input id="exportNameInput" class="mono" style="width:100%; box-sizing:border-box; font-size:13px; padding:8px; margin-bottom:14px;" />
-        <div style="display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap;">
+
+        <div class="export-menu">
+          <button class="export-menu-item" id="exportToFileBtn" type="button">
+            <span class="emi-icon">&#8595;</span>
+            <span class="emi-text"><span class="emi-title">Export to file&hellip;</span></span>
+            <span class="emi-chev">&rsaquo;</span>
+          </button>
+          <button class="export-menu-item" id="exportShareBtn" type="button">
+            <span class="emi-icon">&#8593;</span>
+            <span class="emi-text"><span class="emi-title">Share file&hellip;</span></span>
+            <span class="emi-chev">&rsaquo;</span>
+          </button>
+          <button class="export-menu-item" id="exportCopyBtn" type="button">
+            <span class="emi-icon">&#10697;</span>
+            <span class="emi-text"><span class="emi-title">Copy as text</span></span>
+            <span class="emi-chev">&rsaquo;</span>
+          </button>
+          <button class="export-menu-item" id="exportUploadBtn" type="button">
+            <span class="emi-icon">&#9729;</span>
+            <span class="emi-text">
+              <span class="emi-title">Upload online</span>
+              <span class="emi-sub">dpaste — no account needed. Then save the link to Drive.</span>
+            </span>
+            <span class="emi-chev">&rsaquo;</span>
+          </button>
+        </div>
+
+        <div id="exportStatus" class="export-status"></div>
+
+        <div style="display:flex; gap:8px; justify-content:flex-end;">
           <button class="btn-outline" id="exportCancelBtn">Cancel</button>
-          <button class="btn-outline" id="exportShareBtn">Share</button>
-          <button class="btn-primary" id="exportConfirmBtn">Save</button>
         </div>
       </div>
     </div>
@@ -839,8 +881,22 @@
   const exportOverlay = document.getElementById('exportOverlay');
   const exportNameInput = document.getElementById('exportNameInput');
   const exportCancelBtn = document.getElementById('exportCancelBtn');
-  const exportConfirmBtn = document.getElementById('exportConfirmBtn');
+  const exportToFileBtn = document.getElementById('exportToFileBtn');
   const exportShareBtn = document.getElementById('exportShareBtn');
+  const exportCopyBtn = document.getElementById('exportCopyBtn');
+  const exportUploadBtn = document.getElementById('exportUploadBtn');
+  const exportStatus = document.getElementById('exportStatus');
+
+  function setExportStatus(html, kind) {
+    exportStatus.innerHTML = html || '';
+    exportStatus.className = 'export-status' + (kind ? ' ' + kind : '');
+  }
+
+  function currentExportName() {
+    const chosen = exportNameInput.value.trim();
+    if (!chosen) return null;
+    return /\.(m3u8?|txt)$/i.test(chosen) ? chosen : chosen + '.m3u';
+  }
 
   function doDownload(fileName, text) {
     const blob = new Blob([text], { type: 'application/octet-stream' });
@@ -855,7 +911,7 @@
   }
 
   async function doShare(fileName, text) {
-    const file = new File([text], fileName, { type: 'application/octet-stream' });
+    const file = new File([text], fileName, { type: 'text/plain' });
     if (!navigator.share || !navigator.canShare || !navigator.canShare({ files: [file] })) {
       throw new Error('unsupported');
     }
@@ -864,12 +920,14 @@
 
   function closeExportModal() {
     exportOverlay.style.display = 'none';
+    setExportStatus('');
   }
 
   exportBtn.addEventListener('click', () => {
     const base = state.fileName.replace(/\.(m3u8?|txt)$/i, '') || 'playlist';
     exportNameInput.value = base + '.m3u';
-    exportShareBtn.style.display = navigator.share ? 'inline-flex' : 'none';
+    exportShareBtn.disabled = !navigator.share;
+    setExportStatus('');
     exportOverlay.style.display = 'flex';
     exportNameInput.focus();
     exportNameInput.select();
@@ -878,39 +936,99 @@
   exportCancelBtn.addEventListener('click', closeExportModal);
   exportOverlay.addEventListener('click', (e) => { if (e.target === exportOverlay) closeExportModal(); });
 
-  exportConfirmBtn.addEventListener('click', () => {
-    const chosen = exportNameInput.value.trim();
-    if (!chosen) return;
-    const finalName = /\.(m3u8?|txt)$/i.test(chosen) ? chosen : chosen + '.m3u';
+  // 1) Export to file — downloads the .m3u via the browser's normal download flow
+  exportToFileBtn.addEventListener('click', () => {
+    const finalName = currentExportName();
+    if (!finalName) return;
     const text = serializeM3U(state.epgUrl, state.channels);
     doDownload(finalName, text);
-    closeExportModal();
+    setExportStatus('Downloaded ' + esc(finalName) + '. Open your Files app (or the Google Drive app) and upload it from Downloads.', 'ok');
   });
 
+  // 2) Share file — hands the file to the OS share sheet (Drive, Bluetooth, etc.)
   exportShareBtn.addEventListener('click', async () => {
-    const chosen = exportNameInput.value.trim();
-    if (!chosen) return;
-    const finalName = /\.(m3u8?|txt)$/i.test(chosen) ? chosen : chosen + '.m3u';
+    const finalName = currentExportName();
+    if (!finalName) return;
     const text = serializeM3U(state.epgUrl, state.channels);
     try {
       await doShare(finalName, text);
-      closeExportModal();
+      setExportStatus('Shared.', 'ok');
+      return;
     } catch (err) {
       if (err && err.name === 'AbortError') return; // user closed the share sheet, no action needed
       if (err && err.message === 'unsupported') {
-        alert('Sharing files isn\'t supported in this browser. Use "Save" to download the file instead, then share it from your Files app.');
-      } else if (!window.isSecureContext) {
-        alert('Sharing isn\'t available because this page was opened locally (file://). Browsers only allow sharing over a secure connection (https:// or when installed from one). Once this is hosted online — e.g. on GitHub Pages — Share will work normally. For now, use "Save" to download the file instead.');
-      } else if (err && err.name === 'NotAllowedError') {
-        alert('The browser blocked sharing (permission denied). This can happen if the page isn\'t served securely, or if sharing was disabled for this site/app. Use "Save" to download the file instead.');
-      } else {
-        alert('Share failed: ' + (err && err.message ? err.message : err));
+        setExportStatus('Sharing files isn\'t supported in this browser. Use "Export to file" instead, then share it from your Files app.', 'error');
+        return;
       }
+      if (!window.isSecureContext) {
+        setExportStatus('Sharing needs a secure connection (https://). Use "Export to file" instead.', 'error');
+        return;
+      }
+      if (!(err && err.name === 'NotAllowedError')) {
+        setExportStatus('Share failed: ' + esc(err && err.message ? err.message : String(err)), 'error');
+        return;
+      }
+      // NotAllowedError: some Android Chrome builds block *file* sharing
+      // (Web Share Level 2) even on https, while plain text sharing still
+      // works. Fall through and retry with text-only sharing.
+    }
+
+    try {
+      if (!navigator.share) throw new Error('unsupported');
+      await navigator.share({ title: finalName, text: text });
+      setExportStatus('Shared as text (file sharing was blocked on this device).', 'ok');
+    } catch (err2) {
+      if (err2 && err2.name === 'AbortError') return;
+      setExportStatus('The browser blocked sharing entirely (permission denied), even as text. Try "Export to file" or "Upload online" instead.', 'error');
+    }
+  });
+
+  // 3) Copy as text — puts the raw .m3u contents on the clipboard
+  exportCopyBtn.addEventListener('click', async () => {
+    const text = serializeM3U(state.epgUrl, state.channels);
+    try {
+      if (!navigator.clipboard || !navigator.clipboard.writeText) throw new Error('unsupported');
+      await navigator.clipboard.writeText(text);
+      setExportStatus('Copied to clipboard. Paste it into a Drive doc/Keep note, or into any text editor.', 'ok');
+    } catch (err) {
+      setExportStatus('Clipboard copy isn\'t available here. Use "Export to file" instead.', 'error');
+    }
+  });
+
+  // 4) Upload online — posts the playlist to dpaste (no account needed) and returns a link
+  exportUploadBtn.addEventListener('click', async () => {
+    const finalName = currentExportName();
+    if (!finalName) return;
+    const text = serializeM3U(state.epgUrl, state.channels);
+    setExportStatus('Uploading…', 'loading');
+    exportUploadBtn.disabled = true;
+    try {
+      const body = new URLSearchParams();
+      body.set('content', text);
+      body.set('syntax', 'text');
+      body.set('title', finalName);
+      body.set('expiry_days', '30');
+      const resp = await fetch('https://dpaste.com/api/v2/', { method: 'POST', body });
+      if (!resp.ok) throw new Error('Server responded ' + resp.status);
+      const link = (await resp.text()).trim();
+      if (!/^https?:\/\//.test(link)) throw new Error('Unexpected response');
+      let copied = '';
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(link + '.txt');
+          copied = ' (link copied)';
+        }
+      } catch (e) {}
+      setExportStatus('Uploaded' + copied + ': <a href="' + esc(link) + '.txt" target="_blank" rel="noopener">' + esc(link) + '.txt</a><br>Open that link, then use its share/download option to save into Google Drive.', 'ok');
+    } catch (err) {
+      setExportStatus('Upload failed: ' + esc(err && err.message ? err.message : String(err)) + '. Try "Copy as text" and paste it into dpaste.com manually.', 'error');
+    } finally {
+      exportUploadBtn.disabled = false;
     }
   });
 
   exportNameInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') exportConfirmBtn.click();
+    if (e.key === 'Enter') exportToFileBtn.click();
     if (e.key === 'Escape') closeExportModal();
   });
 
