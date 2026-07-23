@@ -7,7 +7,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#0D1117">
+<meta name="theme-color" content="#F6F7F9">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="M3U Editor">
@@ -15,21 +15,21 @@
   @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
   :root {
-    --bg: #0D1117;
-    --panel: #151B23;
-    --panel-alt: #1B232C;
-    --border: #253039;
-    --border-light: #34424E;
-    --text: #E7ECF2;
-    --text-muted: #8A97A6;
-    --text-dim: #57626D;
-    --amber: #2DD4BF;
-    --amber-dim: #143733;
-    --green: #4ADE80;
-    --red: #F0555B;
-    --red-dim: #3B1E22;
-    --mono: #7FD8C9;
-    --accent-ink: #062420;
+    --bg: #F6F7F9;
+    --panel: #FFFFFF;
+    --panel-alt: #F0F2F5;
+    --border: #DFE3E8;
+    --border-light: #C7CDD6;
+    --text: #1B222B;
+    --text-muted: #6B7685;
+    --text-dim: #98A1AD;
+    --amber: #0D9488;
+    --amber-dim: #E1F6F2;
+    --green: #16A34A;
+    --red: #DC2626;
+    --red-dim: #FCE8E8;
+    --mono: #0F766E;
+    --accent-ink: #FFFFFF;
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; }
@@ -52,6 +52,19 @@
   .entry-tabs { display: flex; gap: 2px; margin-bottom: 14px; border: 1px solid var(--border); border-radius: 8px; padding: 3px; background: var(--panel); width: fit-content; }
   .entry-tab { background: transparent; border: none; color: var(--text-muted); font-size: 12.5px; padding: 7px 14px; border-radius: 6px; font-family: 'Inter', sans-serif; cursor: pointer; }
   .entry-tab.active { background: var(--amber); color: var(--accent-ink); font-weight: 600; }
+
+
+
+  .save-status { font-size: 11px; color: var(--text-dim); font-family: 'IBM Plex Mono', monospace; white-space: nowrap; }
+
+  .saved-list-target { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; text-align: left; }
+  .saved-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; background: var(--panel-alt); }
+  .saved-item.active { border-color: var(--amber); background: var(--amber-dim); }
+  .si-info { min-width: 0; }
+  .si-name { font-weight: 600; font-size: 13px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; }
+  .si-badge { font-size: 10px; font-weight: 600; color: var(--amber); background: #fff; border: 1px solid var(--amber); border-radius: 4px; padding: 1px 5px; margin-left: 6px; vertical-align: middle; }
+  .si-meta { font-size: 11px; color: var(--text-dim); font-family: 'IBM Plex Mono', monospace; margin-top: 2px; }
+  .si-actions { display: flex; gap: 6px; flex-shrink: 0; }
 
   .dropzone { border: 2px dashed var(--border); border-radius: 12px; padding: 56px 20px; text-align: center; cursor: pointer; background: var(--panel); transition: border-color .15s, background .15s; }
   .dropzone.active { border-color: var(--amber); background: rgba(242,169,59,0.08); }
@@ -196,10 +209,12 @@
   </header>
 
   <div id="entry-wrap">
+
     <div class="entry-tabs">
       <button class="entry-tab active" data-tab="upload">Upload file</button>
       <button class="entry-tab" data-tab="url">From URL</button>
       <button class="entry-tab" data-tab="blank">Create new</button>
+      <button class="entry-tab" data-tab="saved">Saved playlists</button>
     </div>
 
     <div class="entry-panel" data-panel="upload">
@@ -219,6 +234,13 @@
           <button class="btn-primary" id="urlLoadBtn">Load</button>
         </div>
         <div class="url-status" id="urlStatus"></div>
+      </div>
+    </div>
+
+    <div class="entry-panel" data-panel="saved" style="display:none">
+      <div class="panel-box" style="text-align:left;">
+        <div class="title" style="text-align:center;">Saved playlists</div>
+        <div id="savedListEntry" class="saved-list-target"></div>
       </div>
     </div>
 
@@ -254,26 +276,74 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         Add channel
       </button>
-      <button class="btn-primary" id="exportBtn" style="margin-left:auto;">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#062420" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      <button class="btn-outline" id="savedPlaylistsBtn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"/><path d="M8 12h8M8 16h5"/></svg>
+        Saved playlists
+      </button>
+      <button class="btn-outline" id="saveAsBtn">Save as new</button>
+      <span class="save-status" id="saveStatusText" style="margin-left:auto;"></span>
+      <button class="btn-ghost" id="clearSavedBtn" title="Remove the local copy stored in this browser">Clear local save</button>
+      <button class="btn-primary" id="exportBtn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Export .m3u
       </button>
     </div>
 
-    <div id="exportOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
-      <div style="background:#10201D; border:1px solid #1F3B36; border-radius:10px; padding:20px; width:320px; max-width:90vw;">
-        <div style="font-weight:600; margin-bottom:12px; color:#DDEAE7;">Export playlist</div>
-        <input id="exportNameInput" class="mono" style="width:100%; box-sizing:border-box; font-size:13px; padding:8px; margin-bottom:14px;" />
+    <div id="savedPlaylistsOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
+      <div style="background:#FFFFFF; border:1px solid #DFE3E8; border-radius:10px; padding:20px; width:400px; max-width:92vw; max-height:78vh; overflow:auto;">
+        <div style="font-weight:600; margin-bottom:12px; color:#1B222B; display:flex; justify-content:space-between; align-items:center;">
+          <span>Saved playlists</span>
+          <button class="btn-ghost" id="savedPlaylistsCloseBtn">Close</button>
+        </div>
+        <div id="savedListModal" class="saved-list-target"></div>
+      </div>
+    </div>
+
+    <div id="saveAsOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
+      <div style="background:#FFFFFF; border:1px solid #DFE3E8; border-radius:10px; padding:20px; width:320px; max-width:90vw;">
+        <div style="font-weight:600; margin-bottom:12px; color:#1B222B;">Save as new playlist</div>
+        <input id="saveAsNameInput" class="mono" style="width:100%; box-sizing:border-box; font-size:13px; padding:8px; margin-bottom:14px;" placeholder="Playlist name" />
         <div style="display:flex; gap:8px; justify-content:flex-end;">
+          <button class="btn-outline" id="saveAsCancelBtn">Cancel</button>
+          <button class="btn-primary" id="saveAsConfirmBtn">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="xferOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
+      <div style="background:#FFFFFF; border:1px solid #DFE3E8; border-radius:10px; padding:20px; width:380px; max-width:92vw; max-height:78vh; overflow:auto;">
+        <div style="font-weight:600; margin-bottom:4px; color:#1B222B;" id="xferTitle">Copy channels to&hellip;</div>
+        <div class="hint" id="xferSubtitle" style="margin-bottom:14px; font-size:12.5px; color:#6B7685;"></div>
+        <div id="xferTargetList" style="display:flex; flex-direction:column; gap:6px; margin-bottom:14px;"></div>
+        <div style="border-top:1px solid #DFE3E8; padding-top:12px; margin-bottom:4px;">
+          <div class="hint" style="font-size:11.5px; color:#98A1AD; margin-bottom:6px;">or save into a brand new playlist</div>
+          <div style="display:flex; gap:8px;">
+            <input id="xferNewNameInput" class="mono" style="flex:1; box-sizing:border-box; font-size:13px; padding:8px;" placeholder="New playlist name" />
+            <button class="btn-outline" id="xferNewConfirmBtn" style="flex-shrink:0;">Create &amp; add</button>
+          </div>
+        </div>
+        <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:14px;">
+          <button class="btn-outline" id="xferCancelBtn">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+
+    <div id="exportOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
+      <div style="background:#FFFFFF; border:1px solid #DFE3E8; border-radius:10px; padding:20px; width:320px; max-width:90vw;">
+        <div style="font-weight:600; margin-bottom:12px; color:#1B222B;">Export playlist</div>
+        <input id="exportNameInput" class="mono" style="width:100%; box-sizing:border-box; font-size:13px; padding:8px; margin-bottom:14px;" />
+        <div style="display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap;">
           <button class="btn-outline" id="exportCancelBtn">Cancel</button>
+          <button class="btn-outline" id="exportShareBtn">Share</button>
           <button class="btn-primary" id="exportConfirmBtn">Save</button>
         </div>
       </div>
     </div>
 
     <div id="playOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
-      <div style="background:#10201D; border:1px solid #1F3B36; border-radius:10px; padding:20px; width:320px; max-width:90vw;">
-        <div style="font-weight:600; margin-bottom:4px; color:#DDEAE7;">Open in player</div>
+      <div style="background:#FFFFFF; border:1px solid #DFE3E8; border-radius:10px; padding:20px; width:320px; max-width:90vw;">
+        <div style="font-weight:600; margin-bottom:4px; color:#1B222B;">Open in player</div>
         <div class="hint" id="playChannelName" style="margin-bottom:14px;"></div>
         <div style="display:flex; flex-direction:column; gap:8px;">
           <button class="btn-outline" id="playIntentBtn" style="width:100%;">Open with installed app</button>
@@ -292,7 +362,7 @@
       <div class="group-add-row group-add-row--primary">
         <input id="newGroupInput" placeholder="New group name" />
         <button class="btn-primary" id="addGroupBtn">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#062420" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           Add group
         </button>
       </div>
@@ -325,6 +395,8 @@
     loaded: false,
     fileName: '',
     epgUrl: '',
+    sourceUrl: '',
+    activePlaylistId: null,
     channels: [],
     search: '',
     groupNameSearch: '',
@@ -338,6 +410,155 @@
     groupsPanelOpen: false,
     expandedGroups: new Set(),
   };
+
+  const IDB_NAME = 'm3uEditorDB';
+  const OLD_STORE = 'autosave';       // legacy single-slot store (v1)
+  const OLD_KEY = 'playlist';
+  const PLAYLISTS_STORE = 'playlists'; // current multi-playlist store (v2), keyPath: 'id'
+  const OLD_LOCALSTORAGE_KEY = 'm3uEditor.autosave.v1'; // used before IndexedDB migration
+  const LAST_ACTIVE_KEY = 'm3uEditor.lastActiveId';
+  let idbPromise = null;
+
+  function genPlaylistId() {
+    return 'pl-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+  }
+
+  function openIdb() {
+    if (!('indexedDB' in window)) return Promise.reject(new Error('IndexedDB unavailable'));
+    if (!idbPromise) {
+      idbPromise = new Promise((resolve, reject) => {
+        const req = indexedDB.open(IDB_NAME, 2);
+        req.onupgradeneeded = () => {
+          const db = req.result;
+          if (!db.objectStoreNames.contains(OLD_STORE)) db.createObjectStore(OLD_STORE);
+          if (!db.objectStoreNames.contains(PLAYLISTS_STORE)) db.createObjectStore(PLAYLISTS_STORE, { keyPath: 'id' });
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+    return idbPromise;
+  }
+
+  async function idbListPlaylists() {
+    try {
+      const db = await openIdb();
+      const list = await new Promise((resolve, reject) => {
+        const tx = db.transaction(PLAYLISTS_STORE, 'readonly');
+        const req = tx.objectStore(PLAYLISTS_STORE).getAll();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => reject(req.error);
+      });
+      list.sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
+      return list;
+    } catch (e) {
+      return [];
+    }
+  }
+
+  async function idbGetPlaylist(id) {
+    if (!id) return null;
+    try {
+      const db = await openIdb();
+      const data = await new Promise((resolve, reject) => {
+        const tx = db.transaction(PLAYLISTS_STORE, 'readonly');
+        const req = tx.objectStore(PLAYLISTS_STORE).get(id);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => reject(req.error);
+      });
+      if (!data || !Array.isArray(data.channels)) return null;
+      return data;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async function idbPutPlaylist(record) {
+    const db = await openIdb();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(PLAYLISTS_STORE, 'readwrite');
+      tx.objectStore(PLAYLISTS_STORE).put(record);
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async function idbDeletePlaylist(id) {
+    try {
+      const db = await openIdb();
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction(PLAYLISTS_STORE, 'readwrite');
+        tx.objectStore(PLAYLISTS_STORE).delete(id);
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+      });
+    } catch (e) {}
+    try {
+      if (localStorage.getItem(LAST_ACTIVE_KEY) === id) localStorage.removeItem(LAST_ACTIVE_KEY);
+    } catch (e) {}
+  }
+
+  // One-time migration: the app used to keep a single autosave slot. If one
+  // is found, promote it into the new multi-playlist store and remove it.
+  async function migrateLegacyAutosaveIfNeeded() {
+    try {
+      const db = await openIdb();
+      const legacy = await new Promise((resolve, reject) => {
+        const tx = db.transaction(OLD_STORE, 'readonly');
+        const req = tx.objectStore(OLD_STORE).get(OLD_KEY);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => reject(req.error);
+      });
+      if (!legacy || !Array.isArray(legacy.channels) || legacy.channels.length === 0) return null;
+      const record = {
+        id: genPlaylistId(),
+        fileName: legacy.fileName || 'playlist.m3u',
+        epgUrl: legacy.epgUrl || '',
+        sourceUrl: legacy.sourceUrl || '',
+        channels: legacy.channels,
+        savedAt: legacy.savedAt || Date.now(),
+      };
+      await idbPutPlaylist(record);
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction(OLD_STORE, 'readwrite');
+        tx.objectStore(OLD_STORE).delete(OLD_KEY);
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+      });
+      return record;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function setSaveStatus(text, isError) {
+    const el = document.getElementById('saveStatusText');
+    if (!el) return;
+    el.textContent = text;
+    el.style.color = isError ? 'var(--red)' : 'var(--text-dim)';
+  }
+
+  async function persistPlaylist() {
+    if (!state.loaded) return;
+    if (!state.activePlaylistId) state.activePlaylistId = genPlaylistId();
+    const record = {
+      id: state.activePlaylistId,
+      fileName: state.fileName,
+      epgUrl: state.epgUrl,
+      sourceUrl: state.sourceUrl,
+      channels: state.channels,
+      savedAt: Date.now(),
+    };
+    try {
+      await idbPutPlaylist(record);
+      try { localStorage.setItem(LAST_ACTIVE_KEY, state.activePlaylistId); } catch (e) {}
+      setSaveStatus('Saved locally · ' + new Date(record.savedAt).toLocaleTimeString());
+    } catch (err) {
+      setSaveStatus('Local save failed (storage full or unavailable)', true);
+    }
+  }
+
+  const debouncedPersist = debounce(persistPlaylist, 600);
 
   function parseM3U(text) {
     const lines = text.split(/\r?\n/);
@@ -461,11 +682,22 @@
   const bulkBarContainer = document.getElementById('bulkBarContainer');
   const groupsDatalist = document.getElementById('groupsDatalist');
   const keepOnlyBtn = document.getElementById('keepOnlyBtn');
+  const clearSavedBtn = document.getElementById('clearSavedBtn');
+  const savedPlaylistsBtn = document.getElementById('savedPlaylistsBtn');
+  const savedPlaylistsOverlay = document.getElementById('savedPlaylistsOverlay');
+  const savedPlaylistsCloseBtn = document.getElementById('savedPlaylistsCloseBtn');
+  const saveAsBtn = document.getElementById('saveAsBtn');
+  const saveAsOverlay = document.getElementById('saveAsOverlay');
+  const saveAsNameInput = document.getElementById('saveAsNameInput');
+  const saveAsCancelBtn = document.getElementById('saveAsCancelBtn');
+  const saveAsConfirmBtn = document.getElementById('saveAsConfirmBtn');
 
-  function loadChannels(channels, headerLine, fileName) {
+  function loadChannels(channels, headerLine, fileName, sourceUrl, existingId) {
     state.channels = channels;
     state.epgUrl = extractEpgUrl(headerLine || '');
     state.fileName = fileName;
+    state.sourceUrl = sourceUrl || '';
+    state.activePlaylistId = existingId || genPlaylistId();
     state.loaded = true;
     state.search = '';
     state.groupNameSearch = '';
@@ -508,6 +740,7 @@
       tab.classList.add('active');
       document.querySelectorAll('.entry-panel').forEach((p) => { p.style.display = 'none'; });
       document.querySelector('.entry-panel[data-panel="' + tab.dataset.tab + '"]').style.display = 'block';
+      if (tab.dataset.tab === 'saved') refreshSavedPlaylistsUI();
     });
   });
 
@@ -556,7 +789,7 @@
       try { name = decodeURIComponent(url.split('/').pop().split('?')[0]) || name; } catch (e) {}
       urlStatus.className = 'url-status ok';
       urlStatus.textContent = 'Loaded ' + channels.length + ' channels' + (usedProxy ? ' (via proxy)' : '') + '.' + (channels.length > PAGE_SIZE ? ' Showing ' + PAGE_SIZE + ' at a time — use search or the group filter to narrow it down.' : '');
-      loadChannels(channels, headerLine, name);
+      loadChannels(channels, headerLine, name, url);
     } catch (err) {
       urlStatus.className = 'url-status error';
       urlStatus.textContent = err && err.name === 'AbortError'
@@ -568,6 +801,12 @@
   }
   urlLoadBtn.addEventListener('click', loadFromUrl);
   urlInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') loadFromUrl(); });
+
+  const URL_DRAFT_KEY = 'm3uEditor.urlDraft';
+  const debouncedSaveUrlDraft = debounce(() => {
+    try { localStorage.setItem(URL_DRAFT_KEY, urlInput.value); } catch (e) {}
+  }, 400);
+  urlInput.addEventListener('input', debouncedSaveUrlDraft);
 
   const debouncedSearchRender = debounce(() => renderRows(), 180);
   searchInput.addEventListener('input', (e) => { state.search = e.target.value; state.page = 1; debouncedSearchRender(); });
@@ -601,6 +840,7 @@
   const exportNameInput = document.getElementById('exportNameInput');
   const exportCancelBtn = document.getElementById('exportCancelBtn');
   const exportConfirmBtn = document.getElementById('exportConfirmBtn');
+  const exportShareBtn = document.getElementById('exportShareBtn');
 
   function doDownload(fileName, text) {
     const blob = new Blob([text], { type: 'application/octet-stream' });
@@ -614,6 +854,14 @@
     URL.revokeObjectURL(url);
   }
 
+  async function doShare(fileName, text) {
+    const file = new File([text], fileName, { type: 'application/octet-stream' });
+    if (!navigator.share || !navigator.canShare || !navigator.canShare({ files: [file] })) {
+      throw new Error('unsupported');
+    }
+    await navigator.share({ files: [file], title: fileName });
+  }
+
   function closeExportModal() {
     exportOverlay.style.display = 'none';
   }
@@ -621,6 +869,7 @@
   exportBtn.addEventListener('click', () => {
     const base = state.fileName.replace(/\.(m3u8?|txt)$/i, '') || 'playlist';
     exportNameInput.value = base + '.m3u';
+    exportShareBtn.style.display = navigator.share ? 'inline-flex' : 'none';
     exportOverlay.style.display = 'flex';
     exportNameInput.focus();
     exportNameInput.select();
@@ -636,6 +885,28 @@
     const text = serializeM3U(state.epgUrl, state.channels);
     doDownload(finalName, text);
     closeExportModal();
+  });
+
+  exportShareBtn.addEventListener('click', async () => {
+    const chosen = exportNameInput.value.trim();
+    if (!chosen) return;
+    const finalName = /\.(m3u8?|txt)$/i.test(chosen) ? chosen : chosen + '.m3u';
+    const text = serializeM3U(state.epgUrl, state.channels);
+    try {
+      await doShare(finalName, text);
+      closeExportModal();
+    } catch (err) {
+      if (err && err.name === 'AbortError') return; // user closed the share sheet, no action needed
+      if (err && err.message === 'unsupported') {
+        alert('Sharing files isn\'t supported in this browser. Use "Save" to download the file instead, then share it from your Files app.');
+      } else if (!window.isSecureContext) {
+        alert('Sharing isn\'t available because this page was opened locally (file://). Browsers only allow sharing over a secure connection (https:// or when installed from one). Once this is hosted online — e.g. on GitHub Pages — Share will work normally. For now, use "Save" to download the file instead.');
+      } else if (err && err.name === 'NotAllowedError') {
+        alert('The browser blocked sharing (permission denied). This can happen if the page isn\'t served securely, or if sharing was disabled for this site/app. Use "Save" to download the file instead.');
+      } else {
+        alert('Share failed: ' + (err && err.message ? err.message : err));
+      }
+    }
   });
 
   exportNameInput.addEventListener('keydown', (e) => {
@@ -871,6 +1142,7 @@
   }
 
   function renderRows() {
+    if (state.loaded) debouncedPersist();
     const list = filteredList();
 
     renderBulkBar();
@@ -1015,6 +1287,8 @@
         '<button class="btn-outline" id="bulkCopyBtn">Copy to group</button>' +
         '<input type="number" id="bulkPosInput" class="mono" min="1" max="' + state.channels.length + '" placeholder="Position" style="width:70px;" />' +
         '<button class="btn-outline" id="bulkPosBtn">Move to position</button>' +
+        '<button class="btn-outline" id="bulkCopyToPlaylistBtn">Copy to playlist&hellip;</button>' +
+        '<button class="btn-outline" id="bulkMoveToPlaylistBtn">Move to playlist&hellip;</button>' +
         '<button class="btn-danger" id="bulkDeleteBtn">Delete selected</button>' +
         '<button class="btn-ghost" id="bulkClearBtn">Clear</button>' +
       '</div>';
@@ -1042,6 +1316,8 @@
       const val = parseInt(document.getElementById('bulkPosInput').value, 10);
       moveSelectedToPosition(val);
     });
+    document.getElementById('bulkCopyToPlaylistBtn').addEventListener('click', () => openXferModal('copy'));
+    document.getElementById('bulkMoveToPlaylistBtn').addEventListener('click', () => openXferModal('move'));
     document.getElementById('bulkDeleteBtn').addEventListener('click', () => {
       state.channels = state.channels.filter((ch) => !state.selectedIds.has(ch.id));
       state.selectedIds = new Set();
@@ -1287,6 +1563,245 @@
     rest.splice(insertAt, 0, ...selected);
     state.channels = rest;
     render();
+  }
+
+  function fmtWhen(ts) {
+    if (!ts) return '';
+    return new Date(ts).toLocaleString();
+  }
+
+  async function refreshSavedPlaylistsUI() {
+    const records = await idbListPlaylists();
+    const html = records.length === 0
+      ? '<div class="hint" style="padding:16px 0;">No saved playlists yet — playlists you open are saved here automatically.</div>'
+      : records.map((r) => (
+          '<div class="saved-item' + (r.id === state.activePlaylistId ? ' active' : '') + '" data-id="' + esc(r.id) + '">' +
+            '<div class="si-info">' +
+              '<div class="si-name">' + esc(r.fileName || 'Untitled') + (r.id === state.activePlaylistId ? '<span class="si-badge">Current</span>' : '') + '</div>' +
+              '<div class="si-meta">' + (r.channels ? r.channels.length : 0) + ' channel(s) · ' + esc(fmtWhen(r.savedAt)) + '</div>' +
+            '</div>' +
+            '<div class="si-actions">' +
+              '<button class="btn-outline si-load" data-id="' + esc(r.id) + '">Load</button>' +
+              '<button class="btn-danger si-delete" data-id="' + esc(r.id) + '">Delete</button>' +
+            '</div>' +
+          '</div>'
+        )).join('');
+    document.querySelectorAll('.saved-list-target').forEach((el) => { el.innerHTML = html; });
+  }
+
+  document.addEventListener('click', async (e) => {
+    const loadBtn = e.target.closest('.si-load');
+    if (loadBtn) {
+      const id = loadBtn.dataset.id;
+      const record = await idbGetPlaylist(id);
+      if (!record) return;
+      savedPlaylistsOverlay.style.display = 'none';
+      const headerLine = record.epgUrl ? '#EXTM3U x-tvg-url="' + record.epgUrl + '"' : '';
+      loadChannels(record.channels, headerLine, record.fileName || 'playlist.m3u', record.sourceUrl || '', record.id);
+      try { localStorage.setItem(LAST_ACTIVE_KEY, record.id); } catch (err) {}
+      setSaveStatus('Saved locally · ' + new Date(record.savedAt || Date.now()).toLocaleTimeString());
+      return;
+    }
+    const delBtn = e.target.closest('.si-delete');
+    if (delBtn) {
+      const id = delBtn.dataset.id;
+      const ok = confirm('Delete this saved playlist from local storage? This can\'t be undone.');
+      if (!ok) return;
+      await idbDeletePlaylist(id);
+      if (id === state.activePlaylistId) state.activePlaylistId = null;
+      await refreshSavedPlaylistsUI();
+      return;
+    }
+  });
+
+  savedPlaylistsBtn.addEventListener('click', () => {
+    savedPlaylistsOverlay.style.display = 'flex';
+    refreshSavedPlaylistsUI();
+  });
+  savedPlaylistsCloseBtn.addEventListener('click', () => { savedPlaylistsOverlay.style.display = 'none'; });
+  savedPlaylistsOverlay.addEventListener('click', (e) => { if (e.target === savedPlaylistsOverlay) savedPlaylistsOverlay.style.display = 'none'; });
+
+  saveAsBtn.addEventListener('click', () => {
+    saveAsNameInput.value = (state.fileName || 'playlist').replace(/\.(m3u8?|txt)$/i, '');
+    saveAsOverlay.style.display = 'flex';
+    saveAsNameInput.focus();
+    saveAsNameInput.select();
+  });
+  saveAsCancelBtn.addEventListener('click', () => { saveAsOverlay.style.display = 'none'; });
+  saveAsOverlay.addEventListener('click', (e) => { if (e.target === saveAsOverlay) saveAsOverlay.style.display = 'none'; });
+  saveAsConfirmBtn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    const chosen = saveAsNameInput.value.trim();
+    if (!chosen) { alert('Please enter a playlist name.'); return; }
+    try {
+      state.activePlaylistId = genPlaylistId();
+      state.fileName = /\.(m3u8?|txt)$/i.test(chosen) ? chosen : chosen + '.m3u';
+      await persistPlaylist();
+      const verify = await idbGetPlaylist(state.activePlaylistId);
+      if (!verify) {
+        alert('Save did not complete — the browser did not confirm the write. This can happen if storage is full, in private/incognito mode, or blocked in your browser\'s site settings.');
+        return;
+      }
+      saveAsOverlay.style.display = 'none';
+      refreshSavedPlaylistsUI();
+    } catch (err) {
+      alert('Save failed: ' + (err && err.message ? err.message : err));
+    }
+  });
+  saveAsNameInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') saveAsConfirmBtn.click();
+    if (e.key === 'Escape') saveAsOverlay.style.display = 'none';
+  });
+
+  clearSavedBtn.addEventListener('click', async () => {
+    if (!state.activePlaylistId) { setSaveStatus('Nothing saved yet'); return; }
+    const ok = confirm('Delete the saved copy of THIS playlist from local storage? This only removes the local backup — it won\'t touch anything currently on screen, and other saved playlists are untouched.');
+    if (!ok) return;
+    await idbDeletePlaylist(state.activePlaylistId);
+    state.activePlaylistId = null;
+    setSaveStatus('Local save cleared');
+    refreshSavedPlaylistsUI();
+  });
+
+  // ---- Copy / Move selected channels to another saved playlist ----
+  const xferOverlay = document.getElementById('xferOverlay');
+  const xferTitle = document.getElementById('xferTitle');
+  const xferSubtitle = document.getElementById('xferSubtitle');
+  const xferTargetList = document.getElementById('xferTargetList');
+  const xferNewNameInput = document.getElementById('xferNewNameInput');
+  const xferNewConfirmBtn = document.getElementById('xferNewConfirmBtn');
+  const xferCancelBtn = document.getElementById('xferCancelBtn');
+  let xferMode = 'copy'; // 'copy' | 'move'
+
+  async function openXferModal(mode) {
+    xferMode = mode;
+    const n = state.selectedIds.size;
+    if (n === 0) return;
+    xferTitle.textContent = (mode === 'move' ? 'Move ' : 'Copy ') + n + ' channel' + (n === 1 ? '' : 's') + ' to…';
+    xferSubtitle.textContent = mode === 'move'
+      ? 'They will be removed from this playlist and added to the one you pick.'
+      : 'They will be added to the playlist you pick; this playlist stays unchanged.';
+    xferNewNameInput.value = '';
+
+    let records = [];
+    try {
+      records = await idbListPlaylists();
+    } catch (e) {}
+    records = records.filter((r) => r.id !== state.activePlaylistId);
+
+    xferTargetList.innerHTML = records.length === 0
+      ? '<div class="hint" style="font-size:12.5px; color:#98A1AD;">No other saved playlists yet. Create a new one below.</div>'
+      : records.map((r) =>
+          '<button class="btn-outline xfer-target" data-id="' + esc(r.id) + '" style="width:100%; justify-content:space-between; display:flex; text-align:left;">' +
+            '<span>' + esc(r.fileName || 'Untitled') + '</span>' +
+            '<span class="hint" style="color:#98A1AD; font-size:11.5px;">' + (r.channels ? r.channels.length : 0) + ' ch</span>' +
+          '</button>'
+        ).join('');
+
+    xferTargetList.querySelectorAll('.xfer-target').forEach((btn) => {
+      btn.addEventListener('click', () => runXfer(btn.dataset.id));
+    });
+
+    xferOverlay.style.display = 'flex';
+  }
+
+  function cloneSelectedChannels() {
+    return state.channels
+      .filter((ch) => state.selectedIds.has(ch.id))
+      .map((ch) => Object.assign({}, ch, { id: makeId(), attrs: Object.assign({}, ch.attrs) }));
+  }
+
+  async function applyMoveRemoval() {
+    if (xferMode !== 'move') return;
+    state.channels = state.channels.filter((ch) => !state.selectedIds.has(ch.id));
+    state.selectedIds = new Set();
+    render();
+    if (state.activePlaylistId) await persistPlaylist();
+  }
+
+  async function runXfer(targetId) {
+    try {
+      const target = await idbGetPlaylist(targetId);
+      if (!target) { alert('Could not load that playlist — it may have been deleted.'); return; }
+      const incoming = cloneSelectedChannels();
+      target.channels = (target.channels || []).concat(incoming);
+      target.savedAt = Date.now();
+      await idbPutPlaylist(target);
+      const verify = await idbGetPlaylist(targetId);
+      if (!verify || verify.channels.length !== target.channels.length) {
+        alert('Save did not complete — the browser did not confirm the write. This can happen if storage is full or blocked.');
+        return;
+      }
+      await applyMoveRemoval();
+      xferOverlay.style.display = 'none';
+      setSaveStatus((xferMode === 'move' ? 'Moved ' : 'Copied ') + incoming.length + ' channel(s) to "' + (target.fileName || 'Untitled') + '"');
+      refreshSavedPlaylistsUI();
+    } catch (err) {
+      alert('Transfer failed: ' + (err && err.message ? err.message : err));
+    }
+  }
+
+  xferNewConfirmBtn.addEventListener('click', async () => {
+    const chosen = xferNewNameInput.value.trim();
+    if (!chosen) { alert('Please enter a name for the new playlist.'); return; }
+    try {
+      const incoming = cloneSelectedChannels();
+      const record = {
+        id: genPlaylistId(),
+        fileName: /\.(m3u8?|txt)$/i.test(chosen) ? chosen : chosen + '.m3u',
+        epgUrl: '',
+        sourceUrl: '',
+        channels: incoming,
+        savedAt: Date.now(),
+      };
+      await idbPutPlaylist(record);
+      const verify = await idbGetPlaylist(record.id);
+      if (!verify) {
+        alert('Save did not complete — the browser did not confirm the write. This can happen if storage is full or blocked.');
+        return;
+      }
+      await applyMoveRemoval();
+      xferOverlay.style.display = 'none';
+      setSaveStatus((xferMode === 'move' ? 'Moved ' : 'Copied ') + incoming.length + ' channel(s) to new playlist "' + record.fileName + '"');
+      refreshSavedPlaylistsUI();
+    } catch (err) {
+      alert('Create failed: ' + (err && err.message ? err.message : err));
+    }
+  });
+
+  xferCancelBtn.addEventListener('click', () => { xferOverlay.style.display = 'none'; });
+  xferOverlay.addEventListener('click', (e) => { if (e.target === xferOverlay) xferOverlay.style.display = 'none'; });
+
+  (async function initSavedState() {
+    if (!('indexedDB' in window)) {
+      setSaveStatus('Local saving unavailable in this browser', true);
+    } else {
+      try {
+        await openIdb();
+      } catch (e) {
+        setSaveStatus('Local saving blocked: ' + (e && e.message ? e.message : 'storage unavailable'), true);
+      }
+    }
+
+    const migrated = await migrateLegacyAutosaveIfNeeded();
+
+    // Restore a typed-but-not-loaded URL draft only — never auto-load a
+    // saved playlist. Refreshing the page should always land back on the
+    // home screen (Upload / From URL / Create new / Saved playlists);
+    // playlists are still kept permanently in local storage and can be
+    // reopened any time from the "Saved playlists" tab.
+    try {
+      const draft = localStorage.getItem(URL_DRAFT_KEY);
+      if (draft) urlInput.value = draft;
+    } catch (e) {}
+  })();
+
+  // Ask the browser to treat this app's storage as persistent so it's less
+  // likely to be auto-evicted under disk pressure (or, on iOS PWAs, after
+  // a period of inactivity). Best-effort — not supported everywhere, and
+  // the browser can still say no.
+  if (navigator.storage && navigator.storage.persist) {
+    navigator.storage.persist().catch(() => {});
   }
 })();
 </script>
