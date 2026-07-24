@@ -989,12 +989,39 @@
     URL.revokeObjectURL(url);
   }
 
-  async function doShare(fileName, text) {
-    const file = new File([text], fileName, { type: 'text/plain' });
-    if (!navigator.share || !navigator.canShare || !navigator.canShare({ files: [file] })) {
-      throw new Error('unsupported');
+  function doShareSync(fileName, text) {
+    if (!navigator.share) {
+      setExportStatus('Sharing isn\'t supported in this browser.', 'error');
+      return;
     }
-    await navigator.share({ files: [file], title: fileName });
+
+    const file = new File([text], fileName, { type: 'text/plain' });
+    const canShareFile = navigator.canShare && navigator.canShare({ files: [file] });
+    
+    // We MUST call navigator.share() immediately in the click task.
+    // We prepare the share promise but don't await it here to avoid activation loss.
+    const sharePromise = canShareFile 
+      ? navigator.share({ files: [file], title: fileName })
+      : navigator.share({ title: fileName, text: text });
+
+    sharePromise
+      .then(() => setExportStatus('Shared.', 'ok'))
+      .catch(err => {
+        if (err && err.name === 'AbortError') return;
+        
+        // If file sharing was blocked, retry immediately with text sharing.
+        // This second call might still work if the first one failed for file-specific reasons.
+        if (canShareFile) {
+          navigator.share({ title: fileName, text: text })
+            .then(() => setExportStatus('Shared as text.', 'ok'))
+            .catch(err2 => {
+              if (err2 && err2.name === 'AbortError') return;
+              setExportStatus('Share failed: ' + esc(err2.message || String(err2)), 'error');
+            });
+        } else {
+          setExportStatus('Share failed: ' + esc(err.message || String(err)), 'error');
+        }
+      });
   }
 
   function closeExportModal() {
@@ -1026,42 +1053,19 @@
   });
 
   // 2) Share file — hands the file to the OS share sheet (Drive, Bluetooth, etc.)
-  exportShareBtn.addEventListener('click', async () => {
+  exportShareBtn.addEventListener('click', () => {
     const finalName = currentExportName();
     if (!finalName) return;
-    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+
+    // IMPORTANT: No async/await here. We must call navigator.share 
+    // as close to the click event as possible.
     const text = serializeM3U(state.epgUrl, state.channels);
-    try {
-      await doShare(finalName, text);
-      setExportStatus('Shared.', 'ok');
-      return;
-    } catch (err) {
-      if (err && err.name === 'AbortError') return; // user closed the share sheet, no action needed
-      if (err && err.message === 'unsupported') {
-        setExportStatus('Sharing files isn\'t supported in this browser. Use "Export to file" instead, then share it from your Files app.', 'error');
-        return;
-      }
-      if (!window.isSecureContext) {
-        setExportStatus('Sharing needs a secure connection (https://). Use "Export to file" instead.', 'error');
-        return;
-      }
-      if (!(err && err.name === 'NotAllowedError')) {
-        setExportStatus('Share failed: ' + esc(err && err.message ? err.message : String(err)), 'error');
-        return;
-      }
-      // NotAllowedError: some Android Chrome builds block *file* sharing
-      // (Web Share Level 2) even on https, while plain text sharing still
-      // works. Fall through and retry with text-only sharing.
+    
+    if (document.activeElement && document.activeElement.blur) {
+      document.activeElement.blur();
     }
 
-    try {
-      if (!navigator.share) throw new Error('unsupported');
-      await navigator.share({ title: finalName, text: text });
-      setExportStatus('Shared as text (file sharing was blocked on this device).', 'ok');
-    } catch (err2) {
-      if (err2 && err2.name === 'AbortError') return;
-      setExportStatus('The browser blocked sharing entirely (permission denied), even as text. Try "Export to file" or "Upload online" instead.', 'error');
-    }
+    doShareSync(finalName, text);
   });
 
   // Save to Google Drive — direct HTTPS upload via Drive API, no OS share
