@@ -1,4 +1,4 @@
-const CACHE_NAME = 'm3u-editor-v1';
+const CACHE_NAME = 'm3u-editor-v2'; // bumped so the old cache is purged on activate
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -22,16 +22,25 @@ self.addEventListener('activate', (event) => {
       Promise.all(
         keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
       )
-    )
+    ).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
 self.addEventListener('fetch', (event) => {
   // Network-first for navigation requests, cache-first for everything else.
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request).catch(() => caches.match('./index.html'))
+      // { cache: 'reload' } forces this fetch to bypass the browser's HTTP
+      // cache and go to the network, so a stale (but still "fresh" per
+      // Cache-Control headers) copy of index.html can't be served here.
+      fetch(event.request, { cache: 'reload' })
+        .then((response) => {
+          // Keep the cache updated with whatever we just got from the network.
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          return response;
+        })
+        .catch(() => caches.match('./index.html'))
     );
     return;
   }
