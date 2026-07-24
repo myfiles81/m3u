@@ -355,6 +355,36 @@
             <span class="emi-text"><span class="emi-title">Export to file&hellip;</span></span>
             <span class="emi-chev">&rsaquo;</span>
           </button>
+          <button class="export-menu-item" id="exportGithubBtn" type="button">
+            <span class="emi-icon">&#8635;</span>
+            <span class="emi-text">
+              <span class="emi-title">Upload to GitHub</span>
+              <span class="emi-sub">Commits the file directly to a repo</span>
+            </span>
+            <span class="emi-chev">&rsaquo;</span>
+          </button>
+        </div>
+
+        <div id="githubPanel" style="display:none;">
+          <div style="font-size:12px; color:#5B6472; margin:12px 0 10px;">
+            Uses a GitHub personal access token with <span class="mono">repo</span> (or fine-grained
+            <span class="mono">contents: read/write</span>) permission. Saved only in this browser.
+          </div>
+          <label style="display:block; font-size:12px; color:#5B6472; margin-bottom:4px;">Repository (owner/repo)</label>
+          <input id="githubRepoInput" class="mono" placeholder="yourname/your-repo" style="width:100%; box-sizing:border-box; font-size:13px; padding:8px; margin-bottom:10px;" />
+          <label style="display:block; font-size:12px; color:#5B6472; margin-bottom:4px;">File path in repo</label>
+          <input id="githubPathInput" class="mono" placeholder="playlists/AllChannels.m3u" style="width:100%; box-sizing:border-box; font-size:13px; padding:8px; margin-bottom:10px;" />
+          <label style="display:block; font-size:12px; color:#5B6472; margin-bottom:4px;">Branch</label>
+          <input id="githubBranchInput" class="mono" placeholder="main" style="width:100%; box-sizing:border-box; font-size:13px; padding:8px; margin-bottom:10px;" />
+          <label style="display:block; font-size:12px; color:#5B6472; margin-bottom:4px;">Personal access token</label>
+          <input id="githubTokenInput" class="mono" type="password" placeholder="ghp_&hellip;" style="width:100%; box-sizing:border-box; font-size:13px; padding:8px; margin-bottom:10px;" />
+          <label style="display:flex; align-items:center; gap:6px; font-size:12px; color:#5B6472; margin-bottom:14px;">
+            <input id="githubSaveCheck" type="checkbox" checked /> Remember these settings on this device
+          </label>
+          <div style="display:flex; gap:8px; justify-content:flex-end;">
+            <button class="btn-outline" id="githubBackBtn" type="button">Back</button>
+            <button class="btn-outline" id="githubUploadBtn" type="button">Commit &amp; push</button>
+          </div>
         </div>
 
         <div id="exportStatus" class="export-status"></div>
@@ -865,6 +895,16 @@
   const exportCancelBtn = document.getElementById('exportCancelBtn');
   const exportToFileBtn = document.getElementById('exportToFileBtn');
   const exportStatus = document.getElementById('exportStatus');
+  const exportMenu = document.querySelector('#exportOverlay .export-menu');
+  const exportGithubBtn = document.getElementById('exportGithubBtn');
+  const githubPanel = document.getElementById('githubPanel');
+  const githubRepoInput = document.getElementById('githubRepoInput');
+  const githubPathInput = document.getElementById('githubPathInput');
+  const githubBranchInput = document.getElementById('githubBranchInput');
+  const githubTokenInput = document.getElementById('githubTokenInput');
+  const githubSaveCheck = document.getElementById('githubSaveCheck');
+  const githubBackBtn = document.getElementById('githubBackBtn');
+  const githubUploadBtn = document.getElementById('githubUploadBtn');
 
   function setExportStatus(html, kind) {
     exportStatus.innerHTML = html || '';
@@ -889,9 +929,92 @@
     URL.revokeObjectURL(url);
   }
 
+  function b64EncodeUtf8(str) {
+    return btoa(unescape(encodeURIComponent(str)));
+  }
+
+  const GITHUB_SETTINGS_KEY = 'm3uEditorGithubSettings';
+
+  function loadGithubSettings() {
+    try {
+      return JSON.parse(localStorage.getItem(GITHUB_SETTINGS_KEY) || 'null') || {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  function saveGithubSettings(settings) {
+    try { localStorage.setItem(GITHUB_SETTINGS_KEY, JSON.stringify(settings)); } catch (e) {}
+  }
+
+  function clearGithubSettings() {
+    try { localStorage.removeItem(GITHUB_SETTINGS_KEY); } catch (e) {}
+  }
+
+  function showGithubPanel() {
+    const saved = loadGithubSettings();
+    githubRepoInput.value = saved.repo || '';
+    const base = state.fileName.replace(/\.(m3u8?|txt)$/i, '') || 'playlist';
+    githubPathInput.value = saved.path || (base + '.m3u');
+    githubBranchInput.value = saved.branch || 'main';
+    githubTokenInput.value = saved.token || '';
+    githubSaveCheck.checked = saved.token ? true : true;
+    exportMenu.style.display = 'none';
+    githubPanel.style.display = 'block';
+    setExportStatus('');
+  }
+
+  function hideGithubPanel() {
+    githubPanel.style.display = 'none';
+    exportMenu.style.display = '';
+    setExportStatus('');
+  }
+
+  async function uploadToGithub(repo, path, branch, token, text) {
+    const apiUrl = 'https://api.github.com/repos/' + repo + '/contents/' + path.split('/').map(encodeURIComponent).join('/');
+    const headers = {
+      'Authorization': 'Bearer ' + token,
+      'Accept': 'application/vnd.github+json',
+    };
+
+    let sha = null;
+    const getResp = await fetch(apiUrl + '?ref=' + encodeURIComponent(branch), { headers });
+    if (getResp.status === 200) {
+      const info = await getResp.json();
+      sha = info.sha;
+    } else if (getResp.status !== 404) {
+      const errText = await getResp.text().catch(() => '');
+      throw new Error('Could not check existing file (' + getResp.status + ')' + (errText ? ': ' + errText.slice(0, 200) : ''));
+    }
+
+    const body = {
+      message: 'Update ' + path + ' via M3U Editor',
+      content: b64EncodeUtf8(text),
+      branch: branch,
+    };
+    if (sha) body.sha = sha;
+
+    const putResp = await fetch(apiUrl, {
+      method: 'PUT',
+      headers: Object.assign({ 'Content-Type': 'application/json' }, headers),
+      body: JSON.stringify(body),
+    });
+
+    if (!putResp.ok) {
+      const errText = await putResp.text().catch(() => '');
+      let msg = 'GitHub upload failed (' + putResp.status + ')';
+      if (putResp.status === 401) msg = 'GitHub rejected the token. Check it\'s valid and has repo/contents write access.';
+      else if (putResp.status === 404) msg = 'Repository, branch, or path not found. Check owner/repo and branch name.';
+      else if (errText) msg += ': ' + errText.slice(0, 200);
+      throw new Error(msg);
+    }
+    return putResp.json();
+  }
+
   function closeExportModal() {
     exportOverlay.style.display = 'none';
     setExportStatus('');
+    hideGithubPanel();
   }
 
   exportBtn.addEventListener('click', () => {
@@ -919,6 +1042,49 @@
   exportNameInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') exportToFileBtn.click();
     if (e.key === 'Escape') closeExportModal();
+  });
+
+  // 2) Upload to GitHub — commits the file to a repo via the GitHub Contents API
+  exportGithubBtn.addEventListener('click', showGithubPanel);
+  githubBackBtn.addEventListener('click', hideGithubPanel);
+
+  githubUploadBtn.addEventListener('click', async () => {
+    const repo = githubRepoInput.value.trim().replace(/^\/+|\/+$/g, '');
+    const path = githubPathInput.value.trim().replace(/^\/+/, '');
+    const branch = githubBranchInput.value.trim() || 'main';
+    const token = githubTokenInput.value.trim();
+
+    if (!/^[^/\s]+\/[^/\s]+$/.test(repo)) {
+      setExportStatus('Enter the repository as owner/repo.', 'error');
+      return;
+    }
+    if (!path) {
+      setExportStatus('Enter a file path in the repo.', 'error');
+      return;
+    }
+    if (!token) {
+      setExportStatus('Enter a personal access token.', 'error');
+      return;
+    }
+
+    if (githubSaveCheck.checked) {
+      saveGithubSettings({ repo, path, branch, token });
+    } else {
+      clearGithubSettings();
+    }
+
+    const text = serializeM3U(state.epgUrl, state.channels);
+    setExportStatus('Pushing to GitHub&hellip;', 'loading');
+    githubUploadBtn.disabled = true;
+    try {
+      const result = await uploadToGithub(repo, path, branch, token, text);
+      const link = result.content && result.content.html_url;
+      setExportStatus('Pushed to GitHub' + (link ? ': <a href="' + esc(link) + '" target="_blank" rel="noopener">' + esc(repo) + '/' + esc(path) + '</a>' : '.'), 'ok');
+    } catch (err) {
+      setExportStatus(esc(err && err.message ? err.message : String(err)), 'error');
+    } finally {
+      githubUploadBtn.disabled = false;
+    }
   });
 
   const playOverlay = document.getElementById('playOverlay');
