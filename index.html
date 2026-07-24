@@ -1032,11 +1032,20 @@
     setExportStatus('');
   }
 
+  let exportCachedText = '';
+
   exportBtn.addEventListener('click', () => {
     const base = state.fileName.replace(/\.(m3u8?|txt)$/i, '') || 'playlist';
     exportNameInput.value = base + '.m3u';
     exportShareBtn.disabled = !navigator.share;
     setExportStatus('');
+    // Precompute the .m3u text now, while the modal opens, instead of doing
+    // it inside the Share button's click handler. Any work — even fast,
+    // synchronous work — done between the tap and the navigator.share()
+    // call can eat into the browser's "user gesture" window on some
+    // Android/Chrome builds. Precomputing means the Share handler below can
+    // call navigator.share() as its literal first statement.
+    exportCachedText = serializeM3U(state.epgUrl, state.channels);
     exportOverlay.style.display = 'flex';
     // Note: deliberately not calling .focus()/.select() here — on some
     // Android/Chrome combinations, the on-screen keyboard popping up right
@@ -1060,15 +1069,14 @@
     const finalName = currentExportName();
     if (!finalName) return;
 
-    // IMPORTANT: No async/await here. We must call navigator.share 
-    // as close to the click event as possible.
-    const text = serializeM3U(state.epgUrl, state.channels);
-    
-    if (document.activeElement && document.activeElement.blur) {
-      document.activeElement.blur();
-    }
-
-    doShareSync(finalName, text);
+    // IMPORTANT: navigator.share() must be the very first thing this handler
+    // does. No serializing, no blur(), no other work before it — any of
+    // that can consume the transient "user activation" the click just gave
+    // us on some Android/Chrome builds, which is what produced the
+    // "Must be handling a user gesture" error. The .m3u text was already
+    // computed when the Export modal opened (see exportCachedText above),
+    // so there's nothing left to do here but call share.
+    doShareSync(finalName, exportCachedText);
   });
 
   // Save to Google Drive — direct HTTPS upload via Drive API, no OS share
