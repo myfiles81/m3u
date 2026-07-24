@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Share Test</title>
+<style>
+  body { font-family: sans-serif; padding: 24px; line-height: 1.5; }
+  button { font-size: 18px; padding: 14px 20px; margin: 8px 0; display: block; width: 100%; max-width: 320px; }
+  #log { margin-top: 20px; padding: 12px; background: #f2f2f2; border-radius: 8px; white-space: pre-wrap; font-family: monospace; font-size: 13px; }
+</style>
+</head>
+<body>
+  <h2>Share Test</h2>
+  <p>This page only tests the browser's native Share feature — nothing else.</p>
+
+  <button id="btnTextShare">1. Share plain text</button>
+  <button id="btnFileShare">2. Share a small file</button>
+
+  <div id="log">Tap a button above.</div>
+
+  <script>
+    const log = document.getElementById('log');
+    function write(msg) { log.textContent = msg; }
+
+    document.getElementById('btnTextShare').addEventListener('click', async () => {
+      write('Trying text share…');
+      try {
+        if (!navigator.share) { write('navigator.share is not available in this browser at all.'); return; }
+        await navigator.share({ title: 'Test', text: 'Hello from the share test page.' });
+        write('SUCCESS: text share worked.');
+      } catch (err) {
+        write('FAILED: ' + (err && err.name) + ' — ' + (err && err.message));
+      }
+    });
+
+    document.getElementById('btnFileShare').addEventListener('click', async () => {
+      write('Trying file share…');
+      try {
+        if (!navigator.share) { write('navigator.share is not available in this browser at all.'); return; }
+        const file = new File(['hello world'], 'test.txt', { type: 'text/plain' });
+        if (!navigator.canShare || !navigator.canShare({ files: [file] })) {
+          write('FAILED: canShare() says this browser cannot share files.');
+          return;
+        }
+        await navigator.share({ files: [file], title: 'test.txt' });
+        write('SUCCESS: file share worked.');
+      } catch (err) {
+        write('FAILED: ' + (err && err.name) + ' — ' + (err && err.message));
+      }
+    });
+  </script>
+</body>
+</html>
