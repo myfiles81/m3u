@@ -995,11 +995,15 @@
       return;
     }
 
+    if (!window.isSecureContext) {
+      setExportStatus('Sharing is blocked because this file is not hosted on a secure website (HTTPS). Please upload it to GitHub Pages for the Share button to work.', 'error');
+      return;
+    }
+
     const file = new File([text], fileName, { type: 'text/plain' });
     const canShareFile = navigator.canShare && navigator.canShare({ files: [file] });
     
     // We MUST call navigator.share() immediately in the click task.
-    // We prepare the share promise but don't await it here to avoid activation loss.
     const sharePromise = canShareFile 
       ? navigator.share({ files: [file], title: fileName })
       : navigator.share({ title: fileName, text: text });
@@ -1010,7 +1014,6 @@
         if (err && err.name === 'AbortError') return;
         
         // If file sharing was blocked, retry immediately with text sharing.
-        // This second call might still work if the first one failed for file-specific reasons.
         if (canShareFile) {
           navigator.share({ title: fileName, text: text })
             .then(() => setExportStatus('Shared as text.', 'ok'))
