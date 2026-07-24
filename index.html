@@ -8,7 +8,6 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#F6F7F9">
-<script src="https://accounts.google.com/gsi/client" async defer></script>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="M3U Editor">
@@ -354,32 +353,6 @@
           <button class="export-menu-item" id="exportToFileBtn" type="button">
             <span class="emi-icon">&#8595;</span>
             <span class="emi-text"><span class="emi-title">Export to file&hellip;</span></span>
-            <span class="emi-chev">&rsaquo;</span>
-          </button>
-          <button class="export-menu-item" id="exportShareBtn" type="button">
-            <span class="emi-icon">&#8593;</span>
-            <span class="emi-text"><span class="emi-title">Share file&hellip;</span></span>
-            <span class="emi-chev">&rsaquo;</span>
-          </button>
-          <button class="export-menu-item" id="exportDriveBtn" type="button">
-            <span class="emi-icon">&#9729;</span>
-            <span class="emi-text">
-              <span class="emi-title">Save to Google Drive</span>
-              <span class="emi-sub">Uploads directly, no size limit, no OS share sheet</span>
-            </span>
-            <span class="emi-chev">&rsaquo;</span>
-          </button>
-          <button class="export-menu-item" id="exportCopyBtn" type="button">
-            <span class="emi-icon">&#10697;</span>
-            <span class="emi-text"><span class="emi-title">Copy as text</span></span>
-            <span class="emi-chev">&rsaquo;</span>
-          </button>
-          <button class="export-menu-item" id="exportUploadBtn" type="button">
-            <span class="emi-icon">&#9729;</span>
-            <span class="emi-text">
-              <span class="emi-title">Upload online</span>
-              <span class="emi-sub">dpaste — no account needed. Then save the link to Drive.</span>
-            </span>
             <span class="emi-chev">&rsaquo;</span>
           </button>
         </div>
@@ -887,83 +860,10 @@
     state.channels.push({ id: makeId(), duration: '-1', attrs: { 'group-title': '' }, name: 'New channel', extras: [], url: '' });
     render();
   });
-  // ---- Google Drive config -------------------------------------------
-  // Create your own OAuth Client ID at https://console.cloud.google.com/
-  // (APIs & Services > Credentials > Create Credentials > OAuth client ID
-  // > Web application > Authorized JavaScript origins: your https://
-  // origin, e.g. https://yourusername.github.io). Paste the Client ID
-  // below. Until you do, "Save to Google Drive" will show setup instructions.
-  const GOOGLE_DRIVE_CLIENT_ID = 'PASTE_YOUR_CLIENT_ID_HERE.apps.googleusercontent.com';
-  const GOOGLE_DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
-  let driveTokenClient = null;
-  let driveAccessToken = null;
-
-  function getDriveTokenClient() {
-    if (driveTokenClient) return driveTokenClient;
-    if (!window.google || !google.accounts || !google.accounts.oauth2) return null;
-    driveTokenClient = google.accounts.oauth2.initTokenClient({
-      client_id: GOOGLE_DRIVE_CLIENT_ID,
-      scope: GOOGLE_DRIVE_SCOPE,
-      callback: () => {}, // overridden per-call below
-    });
-    return driveTokenClient;
-  }
-
-  function getDriveAccessToken() {
-    return new Promise((resolve, reject) => {
-      const client = getDriveTokenClient();
-      if (!client) { reject(new Error('Google sign-in script did not load. Check your connection and try again.')); return; }
-      client.callback = (resp) => {
-        if (resp.error) { reject(new Error(resp.error)); return; }
-        driveAccessToken = resp.access_token;
-        resolve(driveAccessToken);
-      };
-      client.requestAccessToken({ prompt: driveAccessToken ? '' : 'consent' });
-    });
-  }
-
-  async function uploadToDrive(fileName, text) {
-    const token = await getDriveAccessToken();
-    const metadata = { name: fileName, mimeType: 'text/plain' };
-    const boundary = 'm3ueditor_' + Math.random().toString(36).slice(2);
-    const body =
-      '--' + boundary + '\r\n' +
-      'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
-      JSON.stringify(metadata) + '\r\n' +
-      '--' + boundary + '\r\n' +
-      'Content-Type: text/plain\r\n\r\n' +
-      text + '\r\n' +
-      '--' + boundary + '--';
-
-    const resp = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink', {
-      method: 'POST',
-      headers: {
-        'Authorization': 'Bearer ' + token,
-        'Content-Type': 'multipart/related; boundary=' + boundary,
-      },
-      body: body,
-    });
-
-    if (resp.status === 401) {
-      driveAccessToken = null; // token expired/invalid, force fresh consent next time
-      throw new Error('Session expired, please tap "Save to Google Drive" again to re-sign in.');
-    }
-    if (!resp.ok) {
-      const errText = await resp.text().catch(() => '');
-      throw new Error('Drive upload failed (' + resp.status + ')' + (errText ? ': ' + errText.slice(0, 200) : ''));
-    }
-    return resp.json();
-  }
-  // ----------------------------------------------------------------------
-
   const exportOverlay = document.getElementById('exportOverlay');
   const exportNameInput = document.getElementById('exportNameInput');
   const exportCancelBtn = document.getElementById('exportCancelBtn');
   const exportToFileBtn = document.getElementById('exportToFileBtn');
-  const exportShareBtn = document.getElementById('exportShareBtn');
-  const exportDriveBtn = document.getElementById('exportDriveBtn');
-  const exportCopyBtn = document.getElementById('exportCopyBtn');
-  const exportUploadBtn = document.getElementById('exportUploadBtn');
   const exportStatus = document.getElementById('exportStatus');
 
   function setExportStatus(html, kind) {
@@ -989,63 +889,15 @@
     URL.revokeObjectURL(url);
   }
 
-  function doShareSync(fileName, text) {
-    if (!navigator.share) {
-      setExportStatus('Sharing isn\'t supported in this browser.', 'error');
-      return;
-    }
-
-    if (!window.isSecureContext) {
-      setExportStatus('Sharing is blocked because this file is not hosted on a secure website (HTTPS). Please upload it to GitHub Pages for the Share button to work.', 'error');
-      return;
-    }
-
-    const file = new File([text], fileName, { type: 'text/plain' });
-    const canShareFile = navigator.canShare && navigator.canShare({ files: [file] });
-    
-    // We MUST call navigator.share() immediately in the click task.
-    const sharePromise = canShareFile 
-      ? navigator.share({ files: [file], title: fileName })
-      : navigator.share({ title: fileName, text: text });
-
-    sharePromise
-      .then(() => setExportStatus('Shared.', 'ok'))
-      .catch(err => {
-        if (err && err.name === 'AbortError') return;
-        
-        // If file sharing was blocked, retry immediately with text sharing.
-        if (canShareFile) {
-          navigator.share({ title: fileName, text: text })
-            .then(() => setExportStatus('Shared as text.', 'ok'))
-            .catch(err2 => {
-              if (err2 && err2.name === 'AbortError') return;
-              setExportStatus('Share failed: ' + esc(err2.message || String(err2)), 'error');
-            });
-        } else {
-          setExportStatus('Share failed: ' + esc(err.message || String(err)), 'error');
-        }
-      });
-  }
-
   function closeExportModal() {
     exportOverlay.style.display = 'none';
     setExportStatus('');
   }
 
-  let exportCachedText = '';
-
   exportBtn.addEventListener('click', () => {
     const base = state.fileName.replace(/\.(m3u8?|txt)$/i, '') || 'playlist';
     exportNameInput.value = base + '.m3u';
-    exportShareBtn.disabled = !navigator.share;
     setExportStatus('');
-    // Precompute the .m3u text now, while the modal opens, instead of doing
-    // it inside the Share button's click handler. Any work — even fast,
-    // synchronous work — done between the tap and the navigator.share()
-    // call can eat into the browser's "user gesture" window on some
-    // Android/Chrome builds. Precomputing means the Share handler below can
-    // call navigator.share() as its literal first statement.
-    exportCachedText = serializeM3U(state.epgUrl, state.channels);
     exportOverlay.style.display = 'flex';
     // Note: deliberately not calling .focus()/.select() here — on some
     // Android/Chrome combinations, the on-screen keyboard popping up right
@@ -1061,91 +913,7 @@
     if (!finalName) return;
     const text = serializeM3U(state.epgUrl, state.channels);
     doDownload(finalName, text);
-    setExportStatus('Downloaded ' + esc(finalName) + '. Open your Files app (or the Google Drive app) and upload it from Downloads.', 'ok');
-  });
-
-  // 2) Share file — hands the file to the OS share sheet (Drive, Bluetooth, etc.)
-  exportShareBtn.addEventListener('click', () => {
-    const finalName = currentExportName();
-    if (!finalName) return;
-
-    // IMPORTANT: navigator.share() must be the very first thing this handler
-    // does. No serializing, no blur(), no other work before it — any of
-    // that can consume the transient "user activation" the click just gave
-    // us on some Android/Chrome builds, which is what produced the
-    // "Must be handling a user gesture" error. The .m3u text was already
-    // computed when the Export modal opened (see exportCachedText above),
-    // so there's nothing left to do here but call share.
-    doShareSync(finalName, exportCachedText);
-  });
-
-  // Save to Google Drive — direct HTTPS upload via Drive API, no OS share
-  // sheet involved, so no size limit and no permission-policy issues.
-  exportDriveBtn.addEventListener('click', async () => {
-    const finalName = currentExportName();
-    if (!finalName) return;
-
-    if (GOOGLE_DRIVE_CLIENT_ID.indexOf('PASTE_YOUR_CLIENT_ID_HERE') !== -1) {
-      setExportStatus('Google Drive isn\'t set up yet. Open the HTML file, find GOOGLE_DRIVE_CLIENT_ID near the export code, and paste in your own Client ID from Google Cloud Console (see setup guide).', 'error');
-      return;
-    }
-
-    const text = serializeM3U(state.epgUrl, state.channels);
-    setExportStatus('Connecting to Google Drive…', 'loading');
-    exportDriveBtn.disabled = true;
-    try {
-      const file = await uploadToDrive(finalName, text);
-      const link = file.webViewLink || ('https://drive.google.com/file/d/' + file.id + '/view');
-      setExportStatus('Saved to Google Drive: <a href="' + esc(link) + '" target="_blank" rel="noopener">' + esc(finalName) + '</a>', 'ok');
-    } catch (err) {
-      setExportStatus('Drive upload failed: ' + esc(err && err.message ? err.message : String(err)), 'error');
-    } finally {
-      exportDriveBtn.disabled = false;
-    }
-  });
-
-  // 3) Copy as text — puts the raw .m3u contents on the clipboard
-  exportCopyBtn.addEventListener('click', async () => {
-    const text = serializeM3U(state.epgUrl, state.channels);
-    try {
-      if (!navigator.clipboard || !navigator.clipboard.writeText) throw new Error('unsupported');
-      await navigator.clipboard.writeText(text);
-      setExportStatus('Copied to clipboard. Paste it into a Drive doc/Keep note, or into any text editor.', 'ok');
-    } catch (err) {
-      setExportStatus('Clipboard copy isn\'t available here. Use "Export to file" instead.', 'error');
-    }
-  });
-
-  // 4) Upload online — posts the playlist to dpaste (no account needed) and returns a link
-  exportUploadBtn.addEventListener('click', async () => {
-    const finalName = currentExportName();
-    if (!finalName) return;
-    const text = serializeM3U(state.epgUrl, state.channels);
-    setExportStatus('Uploading…', 'loading');
-    exportUploadBtn.disabled = true;
-    try {
-      const body = new URLSearchParams();
-      body.set('content', text);
-      body.set('syntax', 'text');
-      body.set('title', finalName);
-      body.set('expiry_days', '30');
-      const resp = await fetch('https://dpaste.com/api/v2/', { method: 'POST', body });
-      if (!resp.ok) throw new Error('Server responded ' + resp.status);
-      const link = (await resp.text()).trim();
-      if (!/^https?:\/\//.test(link)) throw new Error('Unexpected response');
-      let copied = '';
-      try {
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          await navigator.clipboard.writeText(link + '.txt');
-          copied = ' (link copied)';
-        }
-      } catch (e) {}
-      setExportStatus('Uploaded' + copied + ': <a href="' + esc(link) + '.txt" target="_blank" rel="noopener">' + esc(link) + '.txt</a><br>Open that link, then use its share/download option to save into Google Drive.', 'ok');
-    } catch (err) {
-      setExportStatus('Upload failed: ' + esc(err && err.message ? err.message : String(err)) + '. Try "Copy as text" and paste it into dpaste.com manually.', 'error');
-    } finally {
-      exportUploadBtn.disabled = false;
-    }
+    setExportStatus('Downloaded ' + esc(finalName) + '.', 'ok');
   });
 
   exportNameInput.addEventListener('keydown', (e) => {
